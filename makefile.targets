@@ -3,4 +3,4 @@ clean2:
 	-$(RM) $(OBJS) *.elf
 	-@echo ' '
     
-*.elf: $(wildcard ../linkscripts/*/*.lds) $(wildcard ../linkscripts/*/*/*.lds)
+*.elf: $(wildcard D:/work/personal/QingStation/QingStation-Firmware/linkscripts/STM32L476RGTx/link.lds)
