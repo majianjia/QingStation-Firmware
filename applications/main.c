@@ -1,12 +1,14 @@
 /*
- * Copyright (c) 2006-2021, RT-Thread Development Team
+ * Copyright (c) 2020-2021, Jianjia Ma
+ * majianjia@live.com
  *
  * SPDX-License-Identifier: Apache-2.0
  *
  * Change Logs:
- * Date           Author       Notes
- * 2021-02-05     RT-Thread    first version
+ * Date           Author           Notes
+ * 2021-02-06     Jianjia Ma       the first version
  */
+
 
 #include <rtthread.h>
 

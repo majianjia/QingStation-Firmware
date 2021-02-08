@@ -70,5 +70,9 @@ INIT_BOARD_EXPORT(clock_information);
 
 void clk_init(char *clk_source, int source_freq, int target_freq)
 {
-    system_clock_config(target_freq);
+    //system_clock_config(target_freq);
+
+    // use cubemx's clock configuration instead.
+    extern void SystemClock_Config(void); // in cubemx/core/main
+    SystemClock_Config();
 }
