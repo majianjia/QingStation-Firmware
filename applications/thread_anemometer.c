@@ -56,7 +56,7 @@ uint32_t match_filter_fixedpoint_idx(int16_t* pattern, uint32_t pattern_len, int
 }
 
 // return offset
-uint32_t match_filter(float* pattern, uint32_t pattern_len, float* signal, uint32_t signal_len, float* output)
+uint32_t match_filter(float* signal, uint32_t signal_len, float* pattern, uint32_t pattern_len, float* output)
 {
    float max = 0;
    float sum = 0;
@@ -90,7 +90,7 @@ void normalize(float* pattern, uint32_t len)
 
 // find the exact interpolation
 // output the offset of the signal in sub-digit resolution.
-int linear_interpolation_zerocrossing(float* sig,  uint32_t sig_len, float* out, uint32_t num_zero_cross)
+int linear_interpolation_zerocrossing(float* sig, uint32_t sig_len, float* out, uint32_t num_zero_cross)
 {
     #define IS_SIGN_DIFF(a, b) (a * b < 0)
     uint32_t cross = 0;
@@ -191,7 +191,7 @@ static void sort(float arr[], uint32_t len)
 // signal should exclude the direct sound. -> only include the reflection wave. Offset need to be made before signal in.
 // This function measure the delay different between 2 signals.
 // return the delay in sub sample, positive = backward > forward.
-float measure_signal_delay(float* forward, float* backward, uint32_t sig_len, float* pattern_buf, uint32_t pattern_len)
+float measure_signal_diff(float* forward, float* backward, uint32_t sig_len, float* pattern_buf, uint32_t pattern_len)
 {
     // we use forward as pattern.
     // cut a few raising cycle before the maximum point
@@ -203,7 +203,7 @@ float measure_signal_delay(float* forward, float* backward, uint32_t sig_len, fl
     memcpy(pattern, &forward[pattern_start], sizeof(float)*pattern_len);
 
     // find the signal match for the backward
-    int32_t backward_start = match_filter(pattern, pattern_len, backward, sig_len, NULL);
+    int32_t backward_start = match_filter(backward, sig_len, pattern, pattern_len, NULL);
 
     // the signal offset in digit resolution : offset = backward_matched - forward_matched.
     float sig_offset = backward_start - pattern_start;
@@ -234,6 +234,38 @@ float measure_signal_delay(float* forward, float* backward, uint32_t sig_len, fl
     sub_digit_diff = sub_digit_diff/(num_of_cross - 4); // in a good match, this should be within -1 to 1
 
     return sig_offset + sub_digit_diff;
+}
+
+// this function measure the propagation timing t
+// t: from first ADC measurement to the first matched zero cross of the pattern.
+// a offset should be made if the pattern doest not started at the very first cycle.
+float measure_signal_t(float* sig, uint32_t sig_len, float* pattern, uint32_t pattern_len)
+{
+    // find the signal match for the backward
+    uint32_t matched_idx = match_filter(pattern, pattern_len, sig, sig_len, NULL);
+
+    // using zero cross to gain sub-digit resolution
+    #define NUM_CROSS       10
+    float cross[NUM_CROSS];
+    uint32_t num_of_cross = linear_interpolation_zerocrossing(&sig[matched_idx], sig_len-matched_idx, cross, NUM_CROSS);
+
+    // get the average of all crossing difference. (also want to add a median filter. )
+    float sub_digit_diff = 0;
+    float period = (cross[num_of_cross-1] - cross[0])/num_of_cross;       // get the period.
+    float errors[NUM_CROSS] = {0};
+
+    for(uint32_t i=0; i<num_of_cross; i++){
+        errors[i] = cross[0] + i*period - cross[i];
+    }
+    // get rid of a few max and min, use the rest for average.
+    sort(errors, num_of_cross);
+    // average
+    for(uint32_t i=2; i<num_of_cross-2; i++){
+        sub_digit_diff += errors[i];
+    }
+    sub_digit_diff = sub_digit_diff/(num_of_cross - 4); // in a good match, this should be within -1 to 1
+
+    return matched_idx + sub_digit_diff;
 }
 
 // input the calibration signal (sampled when no signal)
@@ -291,6 +323,7 @@ void thread_anemometer(void* parameters)
 
     // temporary for result.
     float north_delay, east_delay;
+    float dt[4];
 
     // zero_level for all direction. see if needed.
     float zero_level[4]= {0};
@@ -324,17 +357,18 @@ void thread_anemometer(void* parameters)
         // process north-south
         preprocess(adc_buffer[NORTH], sig_buf1, zero_level[SOUTH], ADC_SAMPLE_LEN); // -> forward
         preprocess(adc_buffer[SOUTH], sig_buf2, zero_level[NORTH], ADC_SAMPLE_LEN); // -> backward
-        north_delay = measure_signal_delay(&sig_buf1[soff], &sig_buf2[soff], len, pattern_buf, PATTERN_LEN);
+        north_delay = measure_signal_diff(&sig_buf1[soff], &sig_buf2[soff], len, pattern_buf, PATTERN_LEN);
+
+
         // process east-west
         preprocess(adc_buffer[EAST], sig_buf1, zero_level[WEST], ADC_SAMPLE_LEN); // -> forward
         preprocess(adc_buffer[WEST], sig_buf2, zero_level[EAST], ADC_SAMPLE_LEN); // -> backward
-        east_delay = measure_signal_delay(&sig_buf1[soff], &sig_buf2[soff], len, pattern_buf, PATTERN_LEN);
+        east_delay = measure_signal_diff(&sig_buf1[soff], &sig_buf2[soff], len, pattern_buf, PATTERN_LEN);
 
         LOG_D("N-S: %2.3us, E-W: %2.3us", north_delay, east_delay);
 
         //
         float ns_speed, ew_speed;
-        ns_speed =
 
 
 
