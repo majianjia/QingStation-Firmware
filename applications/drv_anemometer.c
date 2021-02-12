@@ -203,9 +203,23 @@ bool ane_check_busy()
     //return false;
 }
 
+// input: the RECEIVER side that willing to take the sample.
+int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len)
+{
+    // convert the receiver channel to transmitter channel
+    switch(ch){
+    case NORTH: ch=SOUTH; break;
+    case SOUTH: ch=NORTH; break;
+    case WEST: ch=EAST; break;
+    case EAST: ch=WEST; break;
+    }
+    set_output_channel(ch);
+    start_sampling((uint32_t*)adc_buf, adc_len);
+    return 0;
+}
 
 // test functions
-// send a pulse from north to south, then store ADC data.
+// send a pulse from CH side, then sample the opposite side ADC data. NORTH -> SOUTH
 int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t pulse_len, uint16_t* adc_buf, uint32_t adc_len)
 {
     uint16_t pulse[8] = {500};
@@ -213,6 +227,8 @@ int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t pulse_len, uint16_t* adc_buf,
         return -1;
 
     set_output_channel(ch);
+
+    // see if delay needed. and see if need to perform zero_level sampling here.
 
     rt_enter_critical();
 
@@ -225,7 +241,6 @@ int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t pulse_len, uint16_t* adc_buf,
     // user need to wait for the ADC sampling.
     return 0;
 }
-
 
 
 

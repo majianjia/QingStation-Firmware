@@ -36,6 +36,8 @@ bool ane_check_busy();
 
 int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t pulse_len, uint16_t* adc_buf, uint32_t adc_len);
 
+int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len);
+
 
 #ifdef __cplusplus
 }
