@@ -38,7 +38,7 @@
 #define SDIO_ALIGN_LEN       32
 
 #ifndef SDIO_MAX_FREQ
-#define SDIO_MAX_FREQ        (1000000)
+#define SDIO_MAX_FREQ        (24*1000*1000)
 #endif
 
 #ifndef SDIO_BASE_ADDRESS

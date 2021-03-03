@@ -84,8 +84,8 @@
 
 #define RT_USING_DFS
 #define DFS_USING_WORKDIR
-#define DFS_FILESYSTEMS_MAX 2
-#define DFS_FILESYSTEM_TYPES_MAX 2
+#define DFS_FILESYSTEMS_MAX 3
+#define DFS_FILESYSTEM_TYPES_MAX 3
 #define DFS_FD_MAX 16
 #define RT_USING_DFS_ELMFAT
 
@@ -109,21 +109,32 @@
 #define RT_PIPE_BUFSZ 512
 #define RT_USING_SERIAL
 #define RT_SERIAL_RB_BUFSZ 64
+#define RT_USING_CPUTIME
+#define RT_USING_CPUTIME_CORTEXM
 #define RT_USING_I2C
 #define RT_USING_I2C_BITOPS
 #define RT_USING_PIN
-#define RT_USING_PM
 #define RT_USING_RTC
 #define RT_USING_SDIO
 #define RT_SDIO_STACK_SIZE 512
 #define RT_SDIO_THREAD_PRIORITY 15
-#define RT_MMCSD_STACK_SIZE 1024
+#define RT_MMCSD_STACK_SIZE 1280
 #define RT_MMCSD_THREAD_PREORITY 22
 #define RT_MMCSD_MAX_PARTITION 16
 #define RT_USING_SPI
 
 /* Using USB */
 
+#define RT_USING_USB_DEVICE
+#define RT_USBD_THREAD_STACK_SZ 4096
+#define USB_VENDOR_ID 0x0FFE
+#define USB_PRODUCT_ID 0x0001
+#define _RT_USB_DEVICE_CDC
+#define RT_USB_DEVICE_CDC
+#define RT_VCOM_TASK_STK_SIZE 512
+#define RT_VCOM_SERNO "32021919830108"
+#define RT_VCOM_SER_LEN 14
+#define RT_VCOM_TX_TIMEOUT 1000
 /* end of Using USB */
 /* end of Device Drivers */
 
@@ -150,10 +161,6 @@
 /* AT commands */
 
 #define RT_USING_AT
-#define AT_USING_CLIENT
-#define AT_CLIENT_NUM_MAX 1
-#define AT_USING_CLI
-#define AT_CMD_MAX_LEN 128
 #define AT_SW_VERSION_NUM 0x10300
 /* end of AT commands */
 /* end of Network */
@@ -172,6 +179,7 @@
 
 /* log format */
 
+#define ULOG_OUTPUT_FLOAT
 #define ULOG_USING_COLOR
 #define ULOG_OUTPUT_TIME
 #define ULOG_OUTPUT_LEVEL

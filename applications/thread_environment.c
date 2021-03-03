@@ -14,6 +14,7 @@
 #include "drv_bme280.h"
 #include "recorder.h"
 #include "stdio.h"
+#include "stdlib.h"
 
 #define DBG_TAG "env"
 #define DBG_LVL DBG_LOG
@@ -32,6 +33,8 @@ void thread_environment(void* parameters)
     double T;
     double H;
     double P;
+    int8_t buf[128];
+
     rt_device_t i2c_bus = rt_device_find("i2c2");
     if(!i2c_bus)
     {
@@ -42,13 +45,26 @@ void thread_environment(void* parameters)
     // init and set to continual mode.
     bme280_initialization(i2c_bus);
 
+    rt_thread_delay(RT_TICK_PER_SECOND*2);
 
+    recorder_t *recorder = recorder_create("/env.csv", "env", 128, RT_TICK_PER_SECOND*10);
+    if(recorder)
+        recorder_write(recorder, "timestamp,temperature,humidity,pressure\n");
+
+    rt_timer_start(timer);
     while(1)
     {
         rt_sem_take(sem_ready, RT_WAITING_FOREVER);
         bme280_get_data(&H, &T, &P);
 
-        LOG_D("Humidity: %3.1f%%, Temp: %2.2%%, Pressure: %.3f", H, T, P);
+        if(recorder)
+        {
+           snprintf(buf, 128, "%d, %3.3f, %2.3f, %.3f\n", rt_tick_get(), T, H, P);
+           if(recorder)
+               recorder_write(recorder, buf);
+        }
+
+        LOG_D("Humidity: %3.1f%%, Temp: %2.2f Degree, Pressure: %.3f Pa", H, T, P);
     }
 }
 
@@ -59,8 +75,8 @@ int thread_environment_init()
     rt_thread_t tid;
 
     sem_ready = rt_sem_create("env", 0, RT_IPC_FLAG_FIFO);
-    timer = rt_timer_create("env", timer_tick, RT_NULL, 1000, RT_TIMER_FLAG_PERIODIC);
-    tid = rt_thread_create("env", thread_environment, RT_NULL, 1024, 12, 1000);
+    timer = rt_timer_create("env", timer_tick, RT_NULL, 10000, RT_TIMER_FLAG_PERIODIC);
+    tid = rt_thread_create("env", thread_environment, RT_NULL, 2048, 12, 1000);
     if(!tid)
         return RT_ERROR;
 

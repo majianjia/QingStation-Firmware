@@ -25,7 +25,7 @@ static void timer_tick(void* parameter){
     rt_sem_release(sem_ready);
 }
 
-ADC_HandleTypeDef hadc1;
+static ADC_HandleTypeDef hadc1;
 
 static void MX_ADC1_Init(void)
 {
@@ -122,16 +122,16 @@ void thread_rain(void* parameters)
     rt_pin_mode(IR_LED_PIN, PIN_MODE_OUTPUT);
     rt_pin_write(IR_LED_PIN, GPIO_PIN_RESET);
 
-    MX_ADC1_Init();
+    //MX_ADC1_Init();
+    rt_timer_start(timer);
 
     while(1)
     {
         rt_sem_take(sem_ready, RT_WAITING_FOREVER);
 
-        measure_rain(adc_buf, 3);
+        //measure_rain(adc_buf, 3);
     }
 }
-
 
 
 int thread_rain_init()

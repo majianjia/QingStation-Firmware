@@ -24,13 +24,16 @@ extern "C" {
 #include <dfs.h>
 #include <dfs_posix.h>
 
+#define RECORDER_MAGIC (0x787679AE)
+
 typedef struct _recorder_t
 {
+   uint32_t magic;
    rt_thread_t tid;
    rt_mq_t msg;
    char* buf;
    uint32_t max_msg_size;
-   bool is_closed;
+   bool is_open;
    uint32_t file_size;
    int32_t error_code;
    int fd;                      // file handle

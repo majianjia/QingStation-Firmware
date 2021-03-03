@@ -133,7 +133,7 @@ int8_t bme280_get_data(double *h, double *t, double*p)
 int bme280_initialization(rt_device_t bus)
 {
     int8_t rslt = BME280_OK;
-    static uint8_t dev_addr = BME280_I2C_ADDR_PRIM;
+    static uint8_t dev_addr = BME280_I2C_ADDR_SEC;// BME280_I2C_ADDR_PRIM;
 
     i2c_bus = bus;
 

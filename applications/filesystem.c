@@ -13,7 +13,7 @@
 #include <stm32l4xx.h>
 #include <rtdevice.h>
 #include <board.h>
-#include "dfs.h"
+#include "dfs_fs.h"
 #include "stdio.h"
 #include "drv_sdio.h"
 
@@ -22,6 +22,7 @@
 #include <rtdbg.h>
 
 #define SD_DETECT_PIN    GET_PIN(A, 10)
+#define SD_POWER_PIN    GET_PIN(A, 15)
 
 static int sdcard_mount(char path[])
 {
@@ -46,6 +47,7 @@ static int sdcard_mount(char path[])
             LOG_W("sd card mount to '/' failed!");
         }
     }
+    return 0;
 }
 
 static void sdcard_unmount(char path[])
@@ -64,6 +66,11 @@ void thread_sdcard(void *parameters)
     rt_uint8_t is_sd_inited = 0;
 
     rt_pin_mode(SD_DETECT_PIN, PIN_MODE_INPUT_PULLUP);
+    rt_pin_mode(SD_POWER_PIN, PIN_MODE_OUTPUT);
+
+    rt_pin_write(SD_POWER_PIN, PIN_HIGH); // power off
+    rt_thread_mdelay(100);
+    rt_pin_write(SD_POWER_PIN, PIN_LOW); // enable power
 
     while(1)
     {
@@ -95,7 +102,7 @@ int thread_sdcard_init(void)
 {
     rt_thread_t tid;
     tid = rt_thread_create("filesys", thread_sdcard, RT_NULL,
-            1024, 28, 1000);
+            2048, 28, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

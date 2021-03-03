@@ -41,10 +41,26 @@ void thread_imu(void* parameters)
     imu_dev_t *imu = bmx160_register(i2c_bus);
     imu->init(imu);
 
+    rt_timer_start(timer);
     while(1)
     {
         rt_sem_take(sem_ready, RT_WAITING_FOREVER);
         imu->read_raw(imu);
+
+        // temporary
+        imu->unit.gyro_x = imu->raw.gyro_x / 16.4f;
+        imu->unit.gyro_y = imu->raw.gyro_y / 16.4f;
+        imu->unit.gyro_z = imu->raw.gyro_z / 16.4f;
+
+        imu->unit.acc_x = imu->raw.acc_x / 2048.f;
+        imu->unit.acc_y = imu->raw.acc_y / 2048.f;
+        imu->unit.acc_z = imu->raw.acc_z / 2048.f;
+
+        imu->unit.mag_x = imu->raw.mag_x;
+        imu->unit.mag_y = imu->raw.mag_y;
+        imu->unit.mag_z = imu->raw.mag_z;
+
+        imu->unit.temperature = imu->raw.temperature * 0.002 + 23;
     }
 }
 

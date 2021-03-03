@@ -43,6 +43,10 @@ typedef struct _imu_dev_t
         float gyro_x;
         float gyro_y;
         float gyro_z;
+        float mag_x;
+        float mag_y;
+        float mag_z;
+        float temperature;
     } unit;
 
     int (*init)(struct _imu_dev_t *dev);

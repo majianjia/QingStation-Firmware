@@ -8,13 +8,15 @@
  * Date           Author           Notes
  * 2021-02-06     Jianjia Ma       the first version
  */
+#include "stdio.h"
+#include "stdlib.h"
+#include "math.h"
+
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <board.h>
 #include "drv_anemometer.h"
 #include "recorder.h"
-#include "stdio.h"
-#include "math.h"
 
 #define DBG_TAG "anemo"
 #define DBG_LVL DBG_LOG
@@ -277,6 +279,41 @@ float get_zero_level(uint16_t* raw, uint32_t len)
     return sum/len;
 }
 
+// this is to capture the pattern from a good signal.
+// the capture is from the first time the signal over "low_threshold" until the maximum amplitude.
+// in another word, it capture the raising of the amplitude part of the return signal.
+uint32_t capture_pattern(float* sig, uint32_t sig_len, float* pattern_out, uint32_t max_pattern_len, float low_threshold)
+{
+    uint32_t len;
+
+    // search the maximum, use it as the end point
+    uint32_t end_point = arg_maxf(sig, sig_len);
+    float max = sig[end_point];
+    float threshold = max*low_threshold;
+
+    // find starting point
+    uint32_t start_point;
+    for(uint32_t i=end_point; i>0; i--)
+    {
+        if(sig[i] - sig[i-1] < 0 && sig[i] > 0) // different sig, turning point
+        {
+            if(sig[i] <= threshold) // the first time below the threshold, set as pattern beginning.
+            {
+                start_point = i;
+                break;
+            }
+        }
+    }
+
+    // memcpy
+    len = end_point - start_point;
+    if(len>max_pattern_len)
+        len = max_pattern_len;
+    memcpy(pattern_out, &sig[start_point], len*sizeof(float));
+
+    return len;
+}
+
 // int16 -> float, also move data to zero_level. see if we need to scale it?
 void preprocess(uint16_t *raw, float* out, float zero_level, uint32_t len)
 {
@@ -284,6 +321,21 @@ void preprocess(uint16_t *raw, float* out, float zero_level, uint32_t len)
         out[i] = (float)raw[i] - zero_level;
 }
 
+// ADC = 1Msps, 500sample = 0.5ms ToF ~= 0.17m
+// speed of sound: ~340m/s
+// 500 sample  = 0.5ms ~= 0.17m
+// 1000 sample = 1ms   ~= 0.34m
+#define ADC_SAMPLE_LEN (1000)
+uint16_t adc_buffer[4][ADC_SAMPLE_LEN] = {0};
+
+void test_channel(uint32_t ch)
+{
+#define PWM_PIN GET_PIN(A, 6)
+    rt_pin_mode(PWM_PIN, PIN_MODE_OUTPUT);
+    set_output_channel(ch);
+    rt_pin_write(PWM_PIN, 1);
+    rt_pin_write(PWM_PIN,  0);
+}
 
 void thread_anemometer(void* parameters)
 {
@@ -294,30 +346,29 @@ void thread_anemometer(void* parameters)
     // D=distance to reflector; alpha=angle of reflection.
     // wind speed: v = d/sin(a)*cos(a)((1/T_forward) - (1/T_backward))
     // sound speed: c = d/sin(a)*((1/T_forward) + (1/T_backward)
-    #define HEIGHT   0.07   // the height to the reflection panel.
-    #define PITCH    0.05   // the distance between 2 transceivers.
+    #define HEIGHT   0.045   // the height to the reflection panel.
+    #define PITCH    0.04   // the distance between 2 transceivers.
     // const
     float alpha = atanf(2*HEIGHT/PITCH);
-    float cos_alpha = cosf(alpha);
-    float sin_alpha = sinf(alpha);
+    float cos_a = cosf(alpha);
+    float sin_a = sinf(alpha);
 
-    // ADC = 1Msps, 500sample = 0.5ms ToF ~= 0.17m
-    // speed of sound: ~340m/s
-    // 500 sample  = 0.5ms ~= 0.17m
-    // 1000 sample = 1ms   ~= 0.34m
-    #define ADC_SAMPLE_LEN (1000)
-    uint16_t adc_buffer[4][ADC_SAMPLE_LEN] = {0};
+    // pulse generation/modulation, pulse are pwm with 0~1000 = 0%~100%
+    //uint16_t pulse[1] = {50};
+    uint16_t pulse[] = {50, 50, 50, 50};
+    //uint16_t pulse[] = {100, 0, 100, 0, 100, 0, 100, 0};
+    uint32_t pulse_len = sizeof(pulse) / sizeof(uint16_t);
 
     // where the process started -> to avoid the direct sound propagation at the beginning. Depended on the mechanical structure.
     // Same unit of ADC sampling -> us.
     #define START_OFFSET (400)
 
     // allocate for floating-point signal
-    #define PATTERN_LEN (100)
+    #define MAX_PATTERN_LEN (300)
     float* sig_buf1;
     float* sig_buf2;
     float* pattern_buf;
-    pattern_buf = malloc(sizeof(float)* PATTERN_LEN);
+    pattern_buf = malloc(sizeof(float)* MAX_PATTERN_LEN);
     sig_buf1 = malloc(sizeof(float) * ADC_SAMPLE_LEN);
     sig_buf2 = malloc(sizeof(float) * ADC_SAMPLE_LEN);
 
@@ -331,61 +382,137 @@ void thread_anemometer(void* parameters)
     // hardware power_on
     ane_pwr_control(40*1000, true);
 
+    uint16_t adc_temp[ADC_SAMPLE_LEN];
+
+    // cap charge
+    for(uint32_t i=0; i<20; i++)
+    {
+        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
+        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
+
+        ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
+        ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
+    }
+
+
+    // measure zero_level - calibration.
+//    for(uint32_t i=0; i<4000; i++)
+//    {
+//
+//        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
+//        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
+//
+//        ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
+//        ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
+//
+//        for(int j=0; j<ADC_SAMPLE_LEN; j++)
+//        {
+//            rt_kprintf("%d\n", adc_buffer[NORTH][j]);
+//        }
+//        for(int j=0; j<ADC_SAMPLE_LEN; j++)
+//        {
+//            rt_kprintf("%d\n", adc_buffer[SOUTH][j]);
+//        }
+//        for(int j=0; j<ADC_SAMPLE_LEN; j++)
+//        {
+//            rt_kprintf("%d\n", adc_buffer[EAST][j]);
+//        }
+//        for(int j=0; j<ADC_SAMPLE_LEN; j++)
+//        {
+//            rt_kprintf("%d\n", adc_buffer[WEST][j]);
+//        }
+//        rt_thread_delay(10);
+//        rt_thread_delay(3000);
+//        rt_thread_delay(10);
+//    }
+
+//    test_channel(NORTH);
+//    test_channel(SOUTH);
+//    test_channel(EAST);
+//    test_channel(WEST);
+
     // measure zero_level - calibration.
     for(uint32_t i=0; i<4; i++)
     {
         rt_thread_mdelay(10);
-        adc_sample((ULTRASONIC_CHANNEL)i, adc_buffer[0], ADC_SAMPLE_LEN);
+        adc_sample((ULTRASONIC_CHANNEL)i, adc_buffer[i], ADC_SAMPLE_LEN);
         rt_thread_mdelay(10);
-        adc_sample((ULTRASONIC_CHANNEL)i, adc_buffer[0], ADC_SAMPLE_LEN); // sample twice for more stable measurement.
-        zero_level[i] = get_zero_level(adc_buffer[0], ADC_SAMPLE_LEN);
+        adc_sample((ULTRASONIC_CHANNEL)i, adc_buffer[i], ADC_SAMPLE_LEN); // sample twice for more stable measurement.
+        zero_level[i] = get_zero_level(adc_buffer[i], ADC_SAMPLE_LEN);
     }
+
+    const uint32_t soff = START_OFFSET;
+    const uint32_t len = ADC_SAMPLE_LEN - START_OFFSET;
+
+    // test: capture signal; - this should be in a separate calibration process.
+    ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
+    //preprocess(adc_buffer[NORTH], sig_buf1, zero_level[SOUTH], ADC_SAMPLE_LEN);
+    //uint32_t pattern_len = capture_pattern(&sig_buf1[soff], len, pattern_buf, MAX_PATTERN_LEN, 0.2);
+
+    rt_timer_start(timer);
 
     while(1)
     {
-        rt_sem_take(sem_ready, RT_WAITING_FOREVER);
+        //rt_sem_take(sem_ready, RT_WAITING_FOREVER);
+        rt_thread_delay(RT_TICK_PER_SECOND);
 
-        // measure.
-        ane_measure_ch(NORTH, 4, adc_buffer[NORTH], ADC_SAMPLE_LEN);
-        ane_measure_ch(SOUTH, 4, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
-        ane_measure_ch(EAST, 4, adc_buffer[EAST], ADC_SAMPLE_LEN);
-        ane_measure_ch(WEST, 4, adc_buffer[WEST], ADC_SAMPLE_LEN);
-
-        const uint32_t soff = START_OFFSET;
-        const uint32_t len = ADC_SAMPLE_LEN - START_OFFSET;
-
-        // process north-south
-        preprocess(adc_buffer[NORTH], sig_buf1, zero_level[SOUTH], ADC_SAMPLE_LEN); // -> forward
-        preprocess(adc_buffer[SOUTH], sig_buf2, zero_level[NORTH], ADC_SAMPLE_LEN); // -> backward
-        north_delay = measure_signal_diff(&sig_buf1[soff], &sig_buf2[soff], len, pattern_buf, PATTERN_LEN);
-
-
-        // process east-west
-        preprocess(adc_buffer[EAST], sig_buf1, zero_level[WEST], ADC_SAMPLE_LEN); // -> forward
-        preprocess(adc_buffer[WEST], sig_buf2, zero_level[EAST], ADC_SAMPLE_LEN); // -> backward
-        east_delay = measure_signal_diff(&sig_buf1[soff], &sig_buf2[soff], len, pattern_buf, PATTERN_LEN);
-
-        LOG_D("N-S: %2.3us, E-W: %2.3us", north_delay, east_delay);
-
-        //
-        float ns_speed, ew_speed;
-
-
-
-        // only record a time to test
-        if(recorder == NULL)
-        {
-            recorder = recorder_create("/sd/test.csv", "recorder", 128, 1000);
-            recorder_write(recorder, "adc\n"); // header
-            for(int i; i<ADC_SAMPLE_LEN; i++)
-            {
-                snprintf(str_buf, 128, "%d\n", (int)adc_buffer[0][i]);
-                recorder_write(recorder, str_buf);
-            }
-            recorder_delete(recorder);
-        }
+//        // measure.
+//
+//        ane_measure_ch(NORTH, pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
+//        ane_measure_ch(SOUTH, pulse, pulse_len,  adc_buffer[SOUTH], ADC_SAMPLE_LEN);
+//        ane_measure_ch(EAST, pulse, pulse_len,  adc_buffer[EAST], ADC_SAMPLE_LEN);
+//        ane_measure_ch(WEST, pulse, pulse_len,  adc_buffer[WEST], ADC_SAMPLE_LEN);
+//
+//        // process north-south
+//        preprocess(adc_buffer[NORTH], sig_buf1, zero_level[SOUTH], ADC_SAMPLE_LEN); // -> forward
+//        preprocess(adc_buffer[SOUTH], sig_buf2, zero_level[NORTH], ADC_SAMPLE_LEN); // -> backward
+//        // north_delay = measure_signal_diff(&sig_buf1[soff], &sig_buf2[soff], len, pattern_buf, PATTERN_LEN);
+//        dt[NORTH] = measure_signal_t(&sig_buf1[soff], len,  pattern_buf, pattern_len) + soff; // add back the offset.
+//        dt[SOUTH] = measure_signal_t(&sig_buf2[soff], len,  pattern_buf, pattern_len) + soff;
+//
+//
+//        // process east-west
+//        preprocess(adc_buffer[EAST], sig_buf1, zero_level[WEST], ADC_SAMPLE_LEN); // -> forward
+//        preprocess(adc_buffer[WEST], sig_buf2, zero_level[EAST], ADC_SAMPLE_LEN); // -> backward
+//        // east_delay = measure_signal_diff(&sig_buf1[soff], &sig_buf2[soff], len, pattern_buf, PATTERN_LEN);
+//        dt[EAST] = measure_signal_t(&sig_buf1[soff], len,  pattern_buf, pattern_len) + soff; // add back the offset.
+//        dt[WEST] = measure_signal_t(&sig_buf2[soff], len,  pattern_buf, pattern_len) + soff;
+//
+//        LOG_D("N: %4.3us, S: %4.3us, E: %4.3us, W: %4.3us", dt[NORTH], dt[SOUTH], dt[EAST], dt[WEST]);
+//        //LOG_D("N-S: %2.3us, E-W: %2.3us", north_delay, east_delay);
+//
+//        // us -> s
+//        dt[NORTH] /= 1000000.f;
+//        dt[SOUTH] /= 1000000.f;
+//        dt[EAST] /= 1000000.f;
+//        dt[WEST] /= 1000000.f;
+//        //
+//        float ns_v, ew_v; // wind speed
+//        float ns_c, ew_c; // sound speed -> these measurements should be very close, other wise the measurment is wrong.
+//        // wind speed.
+//        ns_v = HEIGHT / (sin_a * cos_a) * (1.0f/dt[NORTH] - 1.0f/dt[SOUTH]);
+//        ew_v = HEIGHT / (sin_a * cos_a) * (1.0f/dt[EAST] - 1.0f/dt[WEST]);
+//        // sound speed
+//        ns_c = HEIGHT / sin_a * (1.0f/dt[NORTH] + 1.0f/dt[SOUTH]);
+//        ew_c = HEIGHT / sin_a * (1.0f/dt[EAST] + 1.0f/dt[WEST]);
+//
+//        LOG_D("N-S: %4.3m/s, E-W: %4.3usm/s, C_ns:%4.3usm/s, C_ew:%4.3usm/s ", ns_v, ew_v, ns_c, ew_c);
+//
+//        // only record a time to test
+//        if(recorder == NULL)
+//        {
+//            recorder = recorder_create("/sd/test.csv", "recorder", 128, 1000);
+//            recorder_write(recorder, "adc\n"); // header
+//            for(int i; i<ADC_SAMPLE_LEN; i++)
+//            {
+//                snprintf(str_buf, 128, "%d\n", (int)adc_buffer[0][i]);
+//                recorder_write(recorder, str_buf);
+//            }
+//            recorder_delete(recorder);
+//        }
     }
 
+    free(pattern_buf);
     free(sig_buf1);
     free(sig_buf2);
 }
@@ -398,7 +525,7 @@ int thread_anemometer_init()
 
     sem_ready = rt_sem_create("anemo", 0, RT_IPC_FLAG_FIFO);
     timer = rt_timer_create("anemo", timer_tick, RT_NULL, 1000, RT_TIMER_FLAG_PERIODIC);
-    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 8192, 5, 1000);
+    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*16, 10, 1000);
     if(!tid)
         return RT_ERROR;
 

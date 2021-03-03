@@ -99,9 +99,12 @@ static int bmx160_read_raw(imu_dev_t *imu)
     struct bmi160_sensor_data accel;
     struct bmi160_sensor_data gyro;
     bmx_imu_dev_t *bmx = (bmx_imu_dev_t *) imu;
+    uint8_t data[2];
 
     /* To read both Accel and Gyro data along with time*/
     bmi160_get_sensor_data((BMI160_ACCEL_SEL | BMI160_GYRO_SEL | BMI160_TIME_SEL), &accel, &gyro, &bmx->bmi);
+
+    bmi160_get_regs(0x20, data, 2, &bmx->bmi);
 
     // read magnetometer
     bmm150_aux_mag_data(&bmx->mag_data, &bmx->bmi);
@@ -116,6 +119,7 @@ static int bmx160_read_raw(imu_dev_t *imu)
     imu->raw.mag_x = bmx->bmm.data.x;
     imu->raw.mag_x = bmx->bmm.data.y;
     imu->raw.mag_x = bmx->bmm.data.z;
+    imu->raw.temperature = ((uint16_t)data[1])<<8 | data[0];
 
     return 0;
 }
@@ -132,8 +136,8 @@ int bmx160_init(struct imu_dev_t * dev)
     bmx_imu_dev_t * imu = (bmx_imu_dev_t *)dev;
 
     // init bmx 160
-    imu->bmi.id = BMI160_I2C_ADDR;    // use the len of the list as id.
-    imu->bmi.interface = BMI160_SPI_INTF;
+    imu->bmi.id = BMI160_I2C_ADDR;
+    imu->bmi.interface = BMI160_I2C_INTF;
     imu->bmi.read = bmx_i2c_read;
     imu->bmi.write = bmx_i2c_write;
     imu->bmi.delay_ms = bmx_delay_ms;
@@ -174,7 +178,7 @@ int bmx160_init(struct imu_dev_t * dev)
     /* Ensure that sensor.aux_cfg.aux_i2c_addr = bmm150.id
        for proper sensor operation */
     imu->bmm.delay_ms = bmx_delay_ms;
-    imu->bmm.intf = BMM150_SPI_INTF;//BMM150_I2C_INTF;  //test
+    imu->bmm.intf = BMM150_I2C_INTF;  //test
 
     /* Initialize the auxiliary sensor interface */
     rslt = bmi160_aux_init(&imu->bmi);
