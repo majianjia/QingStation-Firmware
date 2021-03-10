@@ -49,7 +49,15 @@ extern "C" {
 #define APDS_LS_THRES_LOW_2     0x26
 #define APDS_LS_THRES_VAR       0x27
 
-int8_t apds9250_get_data(double *h, double *t, double*p);
+
+#define APDS_SELECT_RGBIR   0x02
+#define APDS_SELECT_ALSIR   0x00
+
+int apds9250_read_rgbir(uint32_t* r, uint32_t* g, uint32_t* b, uint32_t* ir);
+
+int apds9250_read_alsir(uint32_t* als,  uint32_t* ir);
+
+int apds9250_select_sensor(uint8_t select);
 
 int apds9250_init(rt_device_t bus);
 

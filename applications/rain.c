@@ -12,6 +12,7 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <board.h>
+#include "configuration.h"
 
 #define DBG_TAG "rain"
 #define DBG_LVL DBG_LOG
@@ -119,8 +120,17 @@ void measure_rain(uint16_t *buf, uint16_t len)
 
 void thread_rain(void* parameters)
 {
+    sensor_config_t * cfg;
     rt_pin_mode(IR_LED_PIN, PIN_MODE_OUTPUT);
     rt_pin_write(IR_LED_PIN, GPIO_PIN_RESET);
+
+    // wait until system cfg loaded
+    // wait and load the configuration
+    do{
+        rt_thread_delay(100);
+        cfg = get_sensor_config("Rain");
+    }while(cfg == NULL && !is_system_cfg_valid());
+
 
     //MX_ADC1_Init();
     rt_timer_start(timer);

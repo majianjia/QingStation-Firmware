@@ -32,25 +32,30 @@ static void thread_recorder(void* parameter)
         if(rt_mq_recv(recorder->msg, recorder->buf, recorder->max_msg_size, RT_WAITING_FOREVER) == RT_ETIMEOUT)
             continue;
 
-        result = write(recorder->fd, recorder->buf, strlen(recorder->buf));
-        recorder->file_size += result;
-
-        // reopen to flush the data
-        if(recorder->reopen_after != 0 &&
-           rt_tick_get() - recorder->_last_timestamp > recorder->reopen_after)
+        if(recorder->fd < 0)
         {
-            recorder->_last_timestamp = rt_tick_get();
-            close(recorder->fd);
             recorder->fd = open(recorder->file_path, O_RDWR | O_APPEND);
-
             // close if file error
             if(recorder->fd < 0)
                 break;
         }
+
+        result = write(recorder->fd, recorder->buf, strlen(recorder->buf));
+        recorder->file_size += result;
+
+        // reopen to flush the data
+        if(recorder->reopen_after == 0 ||
+           rt_tick_get() - recorder->_last_timestamp > recorder->reopen_after)
+        {
+            recorder->_last_timestamp = rt_tick_get();
+            close(recorder->fd);
+            recorder->fd = -1; // marked as closed. reopen required.
+        }
     }
     while(recorder->is_open);
 
-    close(recorder->fd);
+    if(recorder->fd >= 0)
+        close(recorder->fd);
     rt_mq_delete(recorder->msg);
     memset(recorder, 0, sizeof(recorder_t));
     free(recorder);
@@ -77,7 +82,11 @@ int recorder_write(recorder_t * recorder, const char *str)
 
     return rt_mq_send(recorder->msg, str, strlen(str)+1); // strlen+1 for '\0'
 }
-
+/* filepath: the path -> it will be overwrited
+ * name: a short name < 8 for this recorder
+ * msg_size: the maximum size of a message (strlen()+1)
+ * reopen_after: >0: the file will reopen to flush the data after the time
+ *               =0: the file will be closed immediately after a message.  */
 recorder_t * recorder_create(const char file_path[], const char name[], uint32_t msg_size, rt_tick_t reopen_after_ticks)
 {
     recorder_t * recorder;
@@ -124,7 +133,7 @@ recorder_t * recorder_create(const char file_path[], const char name[], uint32_t
         return NULL;
     }
 
-    rt_thread_delay(10); // let the thread (low priority) start up.
+    rt_thread_delay(5); // let the thread (low priority) start up.
     return recorder;
 }
 

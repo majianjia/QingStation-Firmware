@@ -66,6 +66,14 @@ extern "C"
  *
  */
 
+#define BSP_USING_UART1
+#define BSP_UART1_TX_PIN       "PB11"
+#define BSP_UART1_RX_PIN       "PB10"
+
+#define BSP_USING_UART2
+#define BSP_UART2_TX_PIN       "PA1"
+#define BSP_UART2_RX_PIN       "PA2"
+
 #define BSP_USING_UART3
 #define BSP_UART3_TX_PIN       "PC4"
 #define BSP_UART3_RX_PIN       "PC5"
@@ -243,7 +251,7 @@ extern "C"
  *                 such as     #define HAL_RTC_MODULE_ENABLED
  *
  */
-/*#define BSP_USING_ONCHIP_RTC*/
+#define BSP_USING_ONCHIP_RTC
 
 /*-------------------------- RTC CONFIG END --------------------------*/
 

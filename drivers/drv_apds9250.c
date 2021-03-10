@@ -70,7 +70,7 @@ static rt_err_t read_regs(void *bus, uint8_t addr, uint8_t reg, uint8_t *data, u
 }
 
 
-int apds9250_read_raw(uint32_t* r, uint32_t* g, uint32_t* b, uint32_t* ir)
+int apds9250_read_rgbir(uint32_t* r, uint32_t* g, uint32_t* b, uint32_t* ir)
 {
     uint8_t data[12];
 
@@ -82,6 +82,33 @@ int apds9250_read_raw(uint32_t* r, uint32_t* g, uint32_t* b, uint32_t* ir)
     *g = data[3] | (uint32_t)data[4] << 8 | (uint32_t) data[5] << 16;
     *b = data[6] | (uint32_t)data[7] << 8 | (uint32_t) data[8] << 16;
     *r = data[9] | (uint32_t)data[10] << 8 | (uint32_t) data[11] << 16;
+
+    return 0;
+}
+
+int apds9250_read_alsir(uint32_t* als, uint32_t* ir)
+{
+    uint8_t data[12];
+
+    if(!i2c_bus)
+        return -1;
+
+    read_regs(i2c_bus, APDS_I2C_ADDR, APDS_LS_DATA_IR_0, data, 12);
+    *ir = data[0] | (uint32_t)data[1] << 8 | (uint32_t) data[2] << 16;
+    *als = data[3] | (uint32_t)data[4] << 8 | (uint32_t) data[5] << 16;
+
+    return 0;
+}
+
+
+
+int apds9250_select_sensor(uint8_t select)
+{
+    if(!i2c_bus)
+        return -1;
+    uint8_t temp;
+    temp = 0x04 | select;
+    write_regs(i2c_bus, APDS_I2C_ADDR, APDS_MAIN_CTRL, &temp, 1);
 
     return 0;
 }
@@ -99,20 +126,20 @@ int apds9250_init(rt_device_t bus)
 
     // reset
     temp = 0x10;
-    write_regs(bus, APDS_I2C_ADDR, APDS_MAIN_CTRL, temp, 1);
+    write_regs(bus, APDS_I2C_ADDR, APDS_MAIN_CTRL, &temp, 1);
     rt_thread_mdelay(10);
 
     // all sensor on
     temp = 0x02 | 0x04;
-    write_regs(bus, APDS_I2C_ADDR, APDS_MAIN_CTRL, temp, 1);
+    write_regs(bus, APDS_I2C_ADDR, APDS_MAIN_CTRL, &temp, 1);
 
     // measurement rate, 1000ms. 20 bits.
     temp = 0x05;
-    write_regs(bus, APDS_I2C_ADDR, APDS_LS_MEAS_RATE, temp, 1);
+    write_regs(bus, APDS_I2C_ADDR, APDS_LS_MEAS_RATE, &temp, 1);
 
     // gain, set to minimum.
     temp = 0x00;
-    write_regs(bus, APDS_I2C_ADDR, APDS_LS_GAIN, temp, 1);
+    write_regs(bus, APDS_I2C_ADDR, APDS_LS_GAIN, &temp, 1);
 
     return 0;
 }

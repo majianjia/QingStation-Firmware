@@ -67,10 +67,8 @@ void thread_sdcard(void *parameters)
 
     rt_pin_mode(SD_DETECT_PIN, PIN_MODE_INPUT_PULLUP);
     rt_pin_mode(SD_POWER_PIN, PIN_MODE_OUTPUT);
-
-    rt_pin_write(SD_POWER_PIN, PIN_HIGH); // power off
-    rt_thread_mdelay(100);
     rt_pin_write(SD_POWER_PIN, PIN_LOW); // enable power
+    rt_thread_mdelay(500);               // this is needed, to delay our initilization
 
     while(1)
     {
@@ -102,13 +100,13 @@ int thread_sdcard_init(void)
 {
     rt_thread_t tid;
     tid = rt_thread_create("filesys", thread_sdcard, RT_NULL,
-            2048, 28, 1000);
+            2048, 20, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);
     return RT_EOK;
 }
-INIT_APP_EXPORT(thread_sdcard_init);
+INIT_ENV_EXPORT(thread_sdcard_init);
 
 
 

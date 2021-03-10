@@ -11,6 +11,7 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <board.h>
+#include <data_pool.h>
 #include "drv_bme280.h"
 #include "recorder.h"
 #include "stdio.h"
@@ -20,20 +21,12 @@
 #define DBG_LVL DBG_LOG
 #include <rtdbg.h>
 
-static rt_sem_t sem_ready;
-static rt_timer_t timer;
-
-static void timer_tick(void* parameter)
-{
-    rt_sem_release(sem_ready);
-}
-
 void thread_environment(void* parameters)
 {
     double T;
     double H;
     double P;
-    int8_t buf[128];
+    int32_t period = 1000;
 
     rt_device_t i2c_bus = rt_device_find("i2c2");
     if(!i2c_bus)
@@ -45,26 +38,22 @@ void thread_environment(void* parameters)
     // init and set to continual mode.
     bme280_initialization(i2c_bus);
 
-    rt_thread_delay(RT_TICK_PER_SECOND*2);
+    rt_thread_mdelay(100);
 
-    recorder_t *recorder = recorder_create("/env.csv", "env", 128, RT_TICK_PER_SECOND*10);
-    if(recorder)
-        recorder_write(recorder, "timestamp,temperature,humidity,pressure\n");
-
-    rt_timer_start(timer);
     while(1)
     {
-        rt_sem_take(sem_ready, RT_WAITING_FOREVER);
+        rt_thread_mdelay(period - rt_tick_get()%period);
         bme280_get_data(&H, &T, &P);
 
-        if(recorder)
-        {
-           snprintf(buf, 128, "%d, %3.3f, %2.3f, %.3f\n", rt_tick_get(), T, H, P);
-           if(recorder)
-               recorder_write(recorder, buf);
-        }
+        // write to global data pool
+        air_info.humidity = H;
+        air_info.pressure = P;
+        air_info.temperature = T;
+        data_updated(&air_info.info);
 
-        LOG_D("Humidity: %3.1f%%, Temp: %2.2f Degree, Pressure: %.3f Pa", H, T, P);
+
+        rt_thread_delay(2);
+        //LOG_D("Humidity: %3.1f%%, Temp: %2.2f Degree, Pressure: %.3f Pa", H, T, P);
     }
 }
 
@@ -73,9 +62,6 @@ void thread_environment(void* parameters)
 int thread_environment_init()
 {
     rt_thread_t tid;
-
-    sem_ready = rt_sem_create("env", 0, RT_IPC_FLAG_FIFO);
-    timer = rt_timer_create("env", timer_tick, RT_NULL, 10000, RT_TIMER_FLAG_PERIODIC);
     tid = rt_thread_create("env", thread_environment, RT_NULL, 2048, 12, 1000);
     if(!tid)
         return RT_ERROR;
