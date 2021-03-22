@@ -23,6 +23,10 @@
 #define LOG_TAG         "recorder"
 #include <rtdbg.h>
 
+// in main.c temp
+void led_indicate_busy();
+void led_indicate_release();
+
 static void thread_recorder(void* parameter)
 {
     int32_t result;
@@ -39,9 +43,10 @@ static void thread_recorder(void* parameter)
             if(recorder->fd < 0)
                 break;
         }
-
+        led_indicate_busy();
         result = write(recorder->fd, recorder->buf, strlen(recorder->buf));
         recorder->file_size += result;
+        led_indicate_release();
 
         // reopen to flush the data
         if(recorder->reopen_after == 0 ||

@@ -97,7 +97,7 @@ void TIM3_Init(uint32_t frequency)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = SystemCoreClock/frequency/100 - 1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 100-1 ;
+  htim3.Init.Period = 100;              // this is not 100-1
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
@@ -111,9 +111,9 @@ void TIM3_Init(uint32_t frequency)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 100-1;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.Pulse = 100;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH; // must not change
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE; //TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
@@ -192,7 +192,8 @@ void set_output_channel(ULTRASONIC_CHANNEL ch)
 // send a sequence of pulse at frequency and the num of size.
 static void send_pulse(uint16_t* pulses, uint16_t length)
 {
-    HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1, (uint32_t*)pulses, length);
+    // the length here is in bytes.
+    HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1, (uint32_t*)pulses, length * sizeof(uint16_t));
 }
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {

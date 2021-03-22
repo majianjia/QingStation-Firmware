@@ -21,12 +21,6 @@
 #define MAX_HEADER_LEN  (256)
 #define MAX_PATH_LEN    (32)
 
-typedef enum
-{
-    MODE_CONTINUE = 0,
-    MODE_ONE_SHOT
-} sensor_mode_t;
-
 typedef struct sensor_config
 {
     void *next;                     // sensor list.
@@ -36,7 +30,6 @@ typedef struct sensor_config
     uint8_t addr;                   // i2c address
     uint16_t update_rate;           // Hz
     uint16_t oversampling;          // num of over sampling
-    sensor_mode_t mode;             // Continue or oneshot
     void *user_data;
     void (*create_json)(struct sensor_config*, cJSON*);
     void (*load_json)(struct sensor_config*, cJSON*);
@@ -98,8 +91,15 @@ typedef struct _bmx160_config_t
     float mag_scale_z;
 } bmx160_config_t;
 
+typedef struct _anemometer_config_t
+{
+    float height;   // height of reflective plate to transducer.
+    float pitch;    // pitch size between transducer.
+} anemometer_config_t;
+
 extern system_config_t system_config;
 bool is_system_cfg_valid();
 sensor_config_t* get_sensor_config(char *name);
+sensor_config_t* get_sensor_config_wait(char *name);
 
 #endif /* __CONFIGURATION_H__ */

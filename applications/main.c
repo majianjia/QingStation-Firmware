@@ -21,17 +21,86 @@
 #define LED1_PIN    GET_PIN(C, 7)
 #define LED0_PIN    GET_PIN(C, 6)
 
+
+static int led_busy_count = 0;
+/* busy and relase need to use in a pair */
+void led_indicate_busy()
+{
+    led_busy_count++;
+    if(led_busy_count > 0)
+        rt_pin_write(LED1_PIN, PIN_HIGH); //orange
+}
+void led_indicate_release()
+{
+    led_busy_count--;
+    if(led_busy_count <= 0)
+        rt_pin_write(LED1_PIN, PIN_LOW);
+}
+
+// the bootloader will search the "key" (everything before the version) and extract the version
+const char firmware_version[] = "QingFirmwareVersion^%&@$:0.1.0";
+
+// again, the bootloader will search the name and extract the CRC number.
+// when it equal to "00000000" -> means this is the debug firmware, bootloader will not copy the backup firmware.
+// This will need to set in hex format by using other tools.
+// when bootloader calculate CRC, the CRC number will be replaced by the default "00000000"
+const char firmware_crc[] = "QingCRC^%.s$:00000000";
+
+// return the offset to the end of the "key", i.e. the start of the value.
+int32_t search_key_location(const char* addr, const char *key, uint32_t len)
+{
+    int idx = 0;
+    int key_len = strlen(key);
+
+    for(; idx<len; idx++)
+    {
+        if(*addr == *key)
+        {
+            if(strncmp(addr, key, key_len) == 0)
+                return idx + key_len;
+        }
+        addr++;
+    }
+    return -1;
+}
+
+// cut the string until ":" and return the length
+int32_t get_key_strings(const char* key, char* buf)
+{
+    for(int i = 0; *key != '\0'; i++)
+    {
+        *buf++ = *key;
+        if(*key++ == ':')
+        {
+            *buf = '\0';
+            return i++;
+        }
+    }
+    return -1;
+}
+
+
+
 int main(void)
 {
     int count = 1;
     rt_pin_mode(LED0_PIN, PIN_MODE_OUTPUT);
     rt_pin_mode(LED1_PIN, PIN_MODE_OUTPUT);
 
+    char buf[32];
+    memset(buf, 1, sizeof(buf));
+
+    int loc = 0;
+    get_key_strings(firmware_version,  buf);
+    loc = search_key_location((const char*) (0x8000000), buf, 512*1024);
+    get_key_strings(firmware_crc,  buf);
+    loc = search_key_location((const char*) (0x8000000), buf, 512*1024);
+
     while (1)
     {
         //LOG_D("Hello RT-Thread!");
-        rt_pin_write(LED0_PIN, count % 2);
-        rt_pin_write(LED1_PIN, count % 2);
+        //rt_pin_write(LED0_PIN, count % 2);
+        //rt_pin_write(LED1_PIN, count % 2);
         rt_thread_delay(500);
         count++;
     }

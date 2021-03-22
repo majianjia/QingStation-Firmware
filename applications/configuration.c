@@ -91,12 +91,29 @@ void delete_sensor(sensor_config_t* list, char* name)
     .interface_name = "i2c2",   \
     .addr = 0,                  \
     .update_rate = 1,           \
-    .oversampling = 0,          \
-    .mode = MODE_CONTINUE       \
+    .oversampling = 0          \
 }
 
 /* it control the system, should be a single instance*/
 system_config_t system_config;
+
+sensor_config_t* get_sensor_config_wait(char *name)
+{
+    sensor_config_t* sensor = system_config.sensors;
+
+    while(!system_config.is_valid)
+        rt_thread_delay(10);
+
+    if(sensor == NULL)
+        return NULL;
+    for(;sensor != NULL; sensor=sensor->next)
+    {
+        if(! strcasecmp(name, sensor->name))
+            return sensor;
+    }
+    return NULL;
+}
+
 
 sensor_config_t* get_sensor_config(char *name)
 {
@@ -174,6 +191,40 @@ void bmx_load_json(sensor_config_t* config, cJSON* json)
         bmx->mag_scale_z = temp->valuedouble;
 }
 
+void anemo_create_json(sensor_config_t* config, cJSON* json)
+{
+    anemometer_config_t * ane;
+    if(!config->user_data)
+        return;
+    ane = config->user_data;
+
+    cJSON * temp = cJSON_CreateObject();
+    if(!temp) return;
+    if(!cJSON_AddItemToObject(json, "setting", temp)) return;
+    if(!cJSON_AddNumberToObject(temp, "height", ane->height)) return;
+    if(!cJSON_AddNumberToObject(temp, "pitch", ane->pitch)) return;
+}
+
+void anemo_load_json(sensor_config_t* config, cJSON* json)
+{
+    anemometer_config_t * ane;
+    if(!config->user_data){
+        config->user_data = malloc(sizeof(anemometer_config_t));
+        memset(config->user_data, 0, sizeof(anemometer_config_t));
+    }
+    ane = config->user_data;
+
+    cJSON * temp;
+    temp = cJSON_GetObjectItem(json, "height");
+    if(cJSON_IsNumber(temp))
+        ane->height = temp->valuedouble;
+    temp = cJSON_GetObjectItem(json, "pitch");
+    if(cJSON_IsNumber(temp))
+        ane->pitch = temp->valuedouble;
+}
+
+
+
 void load_default_config(system_config_t* sys)
 {
     sensor_config_t* s;
@@ -216,6 +267,14 @@ void load_default_config(system_config_t* sys)
     // analog, channel is fixed on board. setting doesnt matter.
     s = new_sensor("Anemometer", "adc_ch5");
     if(s == NULL) return;
+    anemometer_config_t* ane_cfg = malloc(sizeof(anemometer_config_t));
+    if(ane_cfg == NULL) return;
+    memset(ane_cfg, 0, sizeof(anemometer_config_t));
+    ane_cfg->height = 0.05f;     // default, normally set to 5 cm
+    ane_cfg->pitch = 0.04f;      // defualt pitch, based on the 3D file
+    s->user_data = ane_cfg;
+    s->create_json = anemo_create_json;
+    s->load_json = anemo_load_json;
     add_sensor(sys->sensors, s);
 
     s = new_sensor("Rain", "adc_ch6");
@@ -234,9 +293,9 @@ void load_default_config(system_config_t* sys)
     strcpy(sys->record.root_path, "/");
 
     // log
-    sys->log.is_enable = true;
+    sys->log.is_enable = false;
     sys->log.is_repeat_header = true;
-    strcpy(sys->log.header,"temperature,humidity,pressure");
+    strcpy(sys->log.header,"temperature,humidity,pressure,light");
     sys->log.period = 10000;
 
     // test
@@ -355,9 +414,9 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
             if(cJSON_IsNumber(temp))
                 sensor_cfg->oversampling = temp->valueint;
 
-            temp = cJSON_GetObjectItem(sensor, "mode");
-            if(cJSON_IsNumber(temp))
-                sensor_cfg->mode = temp->valueint;
+//            temp = cJSON_GetObjectItem(sensor, "mode");
+//            if(cJSON_IsNumber(temp))
+//                sensor_cfg->mode = temp->valueint;
 
             // if there is private configuration, load.
             if(sensor_cfg->load_json)
@@ -410,7 +469,7 @@ char* create_json_from_config(system_config_t* sys)
         if(!cJSON_AddNumberToObject(temp, "addr", sensor_cfg->addr)) goto end;
         if(!cJSON_AddNumberToObject(temp, "update_rate", sensor_cfg->update_rate)) goto end;
         if(!cJSON_AddNumberToObject(temp, "oversampling", sensor_cfg->oversampling)) goto end;
-        if(!cJSON_AddNumberToObject(temp, "mode", sensor_cfg->mode)) goto end;
+        //if(!cJSON_AddNumberToObject(temp, "mode", sensor_cfg->mode)) goto end;
 
         // add private configuration.
         if(sensor_cfg->create_json)

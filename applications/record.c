@@ -24,6 +24,7 @@
 
 #include "data_pool.h"
 #include "recorder.h"
+#include "time.h"
 
 
 void thread_record(void* parameters)
@@ -31,14 +32,17 @@ void thread_record(void* parameters)
     uint16_t orders[32];
     uint32_t data_len = 0;
     char line[512] = {0};
-
+    time_t timep;
     // wait until system cfg loaded
     while(!is_system_cfg_valid() && system_config.record.is_enable)
         rt_thread_mdelay(1000);
 
     //
+    // timestamp
+    time(&timep);
+    strftime(line, 64, "%Y%m%d_%H%M%S", gmtime(&timep));
     char filepath[128];
-    snprintf(filepath, 128, "%s/%s", system_config.record.root_path, "test.csv");
+    snprintf(filepath, 128, "%s/%s_%s", system_config.record.root_path, line,"test.csv");
 
     recorder_t* recorder = recorder_create(filepath, "rec", 256, 2000);
 
@@ -61,10 +65,15 @@ void thread_record(void* parameters)
     while(1)
     {
         rt_thread_mdelay(system_config.record.period - rt_tick_get() % system_config.record.period);
-        rt_tick_t timestamp = rt_tick_get();
+        //rt_tick_t timestamp = rt_tick_get();
         int index = 0;
-        index += sprintf(&line[index], "%d", timestamp);
+        //index += sprintf(&line[index], "%d", timestamp);
 
+        // timestamp
+        time(&timep);
+        index += strftime(&line[index], 32, "%H%M%S",  gmtime(&timep));
+
+        // print each data to the str
         for(uint32_t i=0; i<data_len; i++ )
         {
             index+= sprintf(&line[index],",");

@@ -12,13 +12,22 @@
 #include <board.h>
 #include <drv_common.h>
 
+#ifdef RT_USING_MEMHEAP_AS_HEAP
+static struct rt_memheap system_heap;
+#endif
+
 RT_WEAK void rt_hw_board_init()
 {
     extern void hw_board_init(char *clock_src, int32_t clock_src_freq, int32_t clock_target_freq);
 
     /* Heap initialization */
 #if defined(RT_USING_HEAP)
+    // default
     rt_system_heap_init((void *) HEAP_BEGIN, (void *) HEAP_END);
+
+    #ifdef RT_USING_MEMHEAP_AS_HEAP
+    rt_memheap_init(&system_heap, "sram2", (void *)SRAM2_BASE, SRAM2_SIZE);
+    #endif
 #endif
 
     hw_board_init(BSP_CLOCK_SOURCE, BSP_CLOCK_SOURCE_FREQ_MHZ, BSP_CLOCK_SYSTEM_FREQ_MHZ);

@@ -14,12 +14,14 @@
 #define RT_USING_HOOK
 #define RT_USING_IDLE_HOOK
 #define RT_IDLE_HOOK_LIST_SIZE 4
-#define IDLE_THREAD_STACK_SIZE 256
+#define IDLE_THREAD_STACK_SIZE 512
 #define RT_USING_TIMER_SOFT
 #define RT_TIMER_THREAD_PRIO 4
 #define RT_TIMER_THREAD_STACK_SIZE 512
 #define RT_DEBUG
 #define RT_DEBUG_COLOR
+#define RT_DEBUG_INIT_CONFIG
+#define RT_DEBUG_INIT 1
 
 /* Inter-Thread communication */
 
@@ -33,7 +35,8 @@
 /* Memory Management */
 
 #define RT_USING_MEMPOOL
-#define RT_USING_SMALL_MEM
+#define RT_USING_MEMHEAP
+#define RT_USING_MEMHEAP_AS_HEAP
 #define RT_USING_HEAP
 /* end of Memory Management */
 
@@ -108,12 +111,14 @@
 #define RT_USING_DEVICE_IPC
 #define RT_PIPE_BUFSZ 512
 #define RT_USING_SERIAL
+#define RT_SERIAL_USING_DMA
 #define RT_SERIAL_RB_BUFSZ 256
 #define RT_USING_CPUTIME
 #define RT_USING_CPUTIME_CORTEXM
 #define RT_USING_I2C
 #define RT_USING_I2C_BITOPS
 #define RT_USING_PIN
+#define RT_USING_PM
 #define RT_USING_RTC
 #define RT_USING_SDIO
 #define RT_SDIO_STACK_SIZE 512
@@ -133,6 +138,7 @@
 #define _RT_USB_DEVICE_CDC
 #define RT_USB_DEVICE_CDC
 #define RT_VCOM_TASK_STK_SIZE 512
+#define RT_VCOM_TX_USE_DMA
 #define RT_VCOM_SERNO "32021919830108"
 #define RT_VCOM_SER_LEN 14
 #define RT_VCOM_TX_TIMEOUT 1000
