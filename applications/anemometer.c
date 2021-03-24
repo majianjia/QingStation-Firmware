@@ -470,17 +470,17 @@ void thread_anemometer(void* parameters)
     }
 
     // for test
-    for (int i = 0; i<1; i++)
-    {
-        for(int idx = 0; idx < 4; idx ++)
-        {
-            rt_thread_delay(10);
-            // make a sample
-            ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
-        }
-        test_print_raw();
-        rt_thread_delay(3000);
-    }
+//    for (int i = 0; i<1; i++)
+//    {
+//        for(int idx = 0; idx < 4; idx ++)
+//        {
+//            rt_thread_delay(10);
+//            // make a sample
+//            ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
+//        }
+//        test_print_raw();
+//        rt_thread_delay(3000);
+//    }
 
     rt_tick_t period = 1000/cfg->update_rate;
     while(1)
@@ -527,11 +527,11 @@ void thread_anemometer(void* parameters)
 //            };
 //            match_filter(sig, ADC_SAMPLE_LEN, pattern, 100, sig2);
 
-            for(int i=0; i<ADC_SAMPLE_LEN; i++)
-                printf("%f\n", sig[i] );
-
-            for(int i=0; i<ADC_SAMPLE_LEN; i++)
-                printf("%f\n", sig2[i] );
+//            for(int i=0; i<ADC_SAMPLE_LEN; i++)
+//                printf("%f\n", sig[i] );
+//
+//            for(int i=0; i<ADC_SAMPLE_LEN; i++)
+//                printf("%f\n", sig2[i] );
 
             // get zero crossing moment.
             int zero_cross_size;
