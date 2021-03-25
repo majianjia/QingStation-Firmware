@@ -26,6 +26,7 @@ air_info_t air_info;
 light_info_t light_info;
 rain_t rain;
 lightning_t lightning;
+gnss_t gnss;
 
 
 /* simple getters */ // deprecated
@@ -56,7 +57,13 @@ float get_light_info_ir(){return light_info.IR;}
 float get_light_info_all(){return light_info.ALS;}
 float get_rain_level(){return rain.rain_level;}
 float get_lightning(){return lightning.distance;}
-
+float get_gnss_latitude(){return gnss.latitude;}
+float get_gnss_longitude(){return gnss.longitude;}
+float get_gnss_speed(){return gnss.speed;}
+float get_gnss_altitude(){return gnss.altitude;}
+float get_gnss_course(){return gnss.course;}
+float get_gnss_num_sat(){return gnss.num_sat;}
+float get_gnss_fixed(){return (int)gnss.is_fixed;}
 
 /* here we map data to their names,
  * so the log and recorder can be easily define which data we want by simply passing a header */
@@ -87,7 +94,14 @@ float (*get_data[])() = {
         get_light_info_ir,
         get_light_info_all,
         get_rain_level,
-        get_lightning
+        get_lightning,
+        get_gnss_latitude,
+        get_gnss_longitude,
+        get_gnss_speed,
+        get_gnss_altitude,
+        get_gnss_course,
+        get_gnss_num_sat,
+        get_gnss_fixed
 };
 
 /* simple getters */
@@ -118,6 +132,13 @@ int print_light_info_ir(char*buf){return sprintf(buf, "%d", light_info.IR);}
 int print_light_info_all(char*buf){return sprintf(buf, "%d", light_info.ALS);}
 int print_rain_level(char*buf){return sprintf(buf, "%d", rain.rain_level);}
 int print_lightning(char*buf){return sprintf(buf, "%f", lightning.distance);}
+int print_gnss_latitude(char*buf){return sprintf(buf, "%f", gnss.latitude);}
+int print_gnss_longitude(char*buf){return sprintf(buf, "%f", gnss.longitude);}
+int print_gnss_speed(char*buf){return sprintf(buf, "%.2f", gnss.speed);}
+int print_gnss_altitude(char*buf){return sprintf(buf, "%.2f", gnss.altitude);}
+int print_gnss_course(char*buf){return sprintf(buf, "%.1f", gnss.course);}
+int print_gnss_num_sat(char*buf){return sprintf(buf, "%d", gnss.num_sat);}
+int print_gnss_fixed(char*buf){if(gnss.is_fixed) return sprintf(buf, "true"); else return sprintf(buf, "false");}
 
 
 /* here we map data to their names,
@@ -149,7 +170,14 @@ int (*print_data[])(char* ) = {
         print_light_info_ir,
         print_light_info_all,
         print_rain_level,
-        print_lightning
+        print_lightning,
+        print_gnss_latitude,
+        print_gnss_longitude,
+        print_gnss_speed,
+        print_gnss_altitude,
+        print_gnss_course,
+        print_gnss_num_sat,
+        print_gnss_fixed
 };
 
 /*  names of data is corresponded to the above data getters. */
@@ -173,14 +201,21 @@ const char data_name[][DATA_NAME_MAX_LEN] = {
         "quat_q3",
         "pressure",
         "humidity",
-        "temperature",
+        "temp",
         "red",
         "green",
         "blue",
         "infrared",
         "light",
         "rain",
-        "lightning"
+        "lightning",
+        "latitude",
+        "longitude",
+        "speed",
+        "altitude",
+        "course",
+        "num_sat",
+        "fixed"
 };
 
 /* find the index of the getter (and name) */

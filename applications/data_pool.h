@@ -101,6 +101,20 @@ typedef struct _lightning_t
 }lightning_t;
 extern lightning_t lightning;
 
+typedef struct _gnss_t
+{
+    sensor_info_t info;
+    float latitude;     // a double can be more accurate
+    float longitude;
+    float speed;        // m/s
+    float altitude;     // sea altitude
+    float course;
+    int   num_sat;      // number of satellites
+    bool is_fixed;         // location is fixed
+}gnss_t;
+extern gnss_t gnss;
+
+
 void data_updated(sensor_info_t *info);
 
 

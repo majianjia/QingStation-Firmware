@@ -18,7 +18,7 @@
 #include "cjson/cjson.h"
 
 #define MAX_NAME_LEN    (16)
-#define MAX_HEADER_LEN  (256)
+#define MAX_HEADER_LEN  (512)
 #define MAX_PATH_LEN    (32)
 
 typedef struct sensor_config

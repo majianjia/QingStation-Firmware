@@ -47,11 +47,9 @@ void thread_log(void* parameters)
     is_repeated_header = system_config.log.is_repeat_header;
 
     // try to use USB CDC for test.
-    if(usb_cdc == NULL){
-        usb_cdc = rt_device_find("vcom");
-        if(usb_cdc)
-            rt_device_open(usb_cdc, RT_DEVICE_FLAG_INT_RX|RT_DEVICE_FLAG_INT_TX);
-    }
+    usb_cdc = rt_device_find("vcom");
+    if(usb_cdc)
+        rt_device_open(usb_cdc, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX);//  | RT_DEVICE_FLAG_STREAM ?
 
     while(1)
     {
