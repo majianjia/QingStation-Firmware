@@ -283,7 +283,7 @@ void load_default_config(system_config_t* sys)
 
     // test
     sys->uart1.bitrate = 115200;
-    sys->uart2.bitrate = 57600;
+    sys->uart2.bitrate = 115200;
 
     // recorder
     sys->record.is_enable = true;
