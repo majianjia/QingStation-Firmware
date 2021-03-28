@@ -30,26 +30,9 @@
 #define MIN(a, b) (a<b?a:b)
 #endif
 
-// return the offset of the pattern.
-uint32_t match_filter_fixedpoint_idx(int16_t* pattern, uint32_t pattern_len, int16_t* signal, uint32_t signal_len)
-{
-   int32_t sum = 0;
-   int32_t max = 0;
-   uint32_t idx = 0;
-   for(uint32_t i=0; i<signal_len-pattern_len; i++)
-   {
-       for(uint32_t j=0; j<pattern_len; j++)
-           sum += pattern[j] * signal[i+j];
-
-       if(sum > max)
-       {
-           max = sum;
-           idx = i;
-       }
-       sum = 0;
-   }
-   return idx;
-}
+//#define IS_SIGN_DIFF(a, b) (a * b < 0)            // this doesnt not cover 0
+//#define IS_SIGN_DIFF(a, b) (!(((int)a^(int)b)>>(sizeof(int)-1))) // this cover 0, but have fixed width
+#define IS_SIGN_DIFF(a, b) (!(signbit(a) == signbit(b))) // this cover 0, but have fixed width
 
 // return offset
 uint32_t match_filter(float* signal, uint32_t signal_len, float* pattern, uint32_t pattern_len, float* output)
@@ -73,88 +56,16 @@ uint32_t match_filter(float* signal, uint32_t signal_len, float* pattern, uint32
    return idx;
 }
 
-// to normalize the pattern
-void normalize(float* pattern, uint32_t len)
+float maxf(float* sig, int len)
 {
-    float sum=0;
-    for(uint32_t i=0; i<len; i++)
-        sum += abs(pattern[i]); // need to decide which function to normalize here.
-    sum = sum /len;
-    for(uint32_t i=0; i<len; i++)
-        pattern[i] = pattern[i] * sum;
-}
-
-// find the exact interpolation
-// output the offset of the signal in sub-digit resolution.
-int linear_interpolation_zerocrossing(float* sig, uint32_t sig_len, float* out, uint32_t num_zero_cross)
-{
-    #define IS_SIGN_DIFF(a, b) (a * b < 0)
-    uint32_t cross = 0;
-    for(uint32_t i=0; i<sig_len-1 && cross<num_zero_cross; i++)
-    {
-        if(IS_SIGN_DIFF(sig[i], sig[i+1]))
-        {
-            // do interpolation using y=ax+b
-            float a = sig[i+1] - sig[i];    // a=(y2 - y1)/(x2 - x1) while x2 - x1 = 1
-            float b = sig[i];               // b=y1
-            float x = -b/a;                 // x=(y-b)/a zero crossing.
-            out[cross] = x + i;
-            // cross
-            cross++;
-        }
-    }
-    return  cross;
-}
-
-// see if needed. to filter where the 2 points are within a distance.
-uint32_t match_point(float *p1, float *p2, uint32_t len, float threshold)
-{
-    bool is_matched = false;
-    uint32_t matched_size;
-    for(uint32_t i=0; i<len; i++)
-    {
-        for(uint32_t j=0; j<len; j++){
-            if(abs(p1[i] - p2[j]) <= threshold){
-                is_matched = true;
-                break;
-            }
-        }
-        // if not matched, delete the number in P1
-        if(!is_matched){
-            p1[i] = 0;
-        }
-        is_matched = false;
-    }
-
-    // delete all zero in p1;
-    for(uint32_t i=0; i<len; )
-    {
-        if(p1[i] == 0)
-        {
-            memmove(&p1[i], &p1[i+1], (len-i-1)*sizeof(float));
-            continue;
-        }
-        matched_size++;
-        i++;
-    }
-    // if fully matched, nothing changed.
-    if(matched_size == len)
-        return matched_size;
-
-    // now delete unmatched p2
-    for(uint32_t i=0; i<len; )
-    {
-        if(abs(p1[i] - p2[i]) <= threshold){
-            memmove(&p2[i], &p2[i+1], (len-i-1)*sizeof(float));
-            continue;
-        }
-        i++;
-    }
-    return matched_size;
+    float max = sig[0];
+    for(int i=1; i<len; i++)
+        max = MAX(sig[i], max);
+    return max;
 }
 
 // find the max index
-uint32_t arg_maxf(float* sig, uint32_t len)
+int32_t argmaxf(float* sig, int32_t len)
 {
     float max = sig[0];
     uint32_t arg = 0;
@@ -170,6 +81,40 @@ uint32_t arg_maxf(float* sig, uint32_t len)
     return arg;
 }
 
+
+float minf(float* sig, int len)
+{
+    float min = sig[0];
+    for(int i=1; i<len; i++)
+        min = MIN(sig[i], min);
+    return min;
+}
+
+int arg_minf(float* sig, int len)
+{
+    float min = sig[0];
+    int arg = 0;
+    for(uint32_t i=0; i<len; i++){
+        if(sig[i] > min){
+            arg = i;
+            min = sig[i];
+        }
+    }
+    return arg;
+}
+
+
+// to normalize the signal to -1 ~1
+void normalize(float* pattern, uint32_t len)
+{
+    float max = 0;
+    for(int i=0; i<len; i++)
+        max = MAX(abs(pattern[i]), max);
+    for(int i=0; i<len; i++)
+        pattern[i] = pattern[i] / max;
+}
+
+
 // insert sort
 static void sort(float arr[], uint32_t len)
 {
@@ -183,86 +128,33 @@ static void sort(float arr[], uint32_t len)
     }
 }
 
-// Forward propagation signal, backward signal, both should be aligned and shifted to zero.
-// signal should exclude the direct sound. -> only include the reflection wave. Offset need to be made before signal in.
-// This function measure the delay different between 2 signals.
-// return the delay in sub sample, positive = backward > forward.
-float measure_signal_diff(float* forward, float* backward, uint32_t sig_len, float* pattern_buf, uint32_t pattern_len)
+// find the exact interpolation
+// output the offset of the signal in sub-digit resolution.
+int linear_interpolation_zerocrossing(float* sig, uint32_t sig_len, float* out, uint32_t num_zero_cross)
 {
-    // we use forward as pattern.
-    // cut a few raising cycle before the maximum point
-    int32_t pattern_start;
-    float * pattern = pattern_buf;
-    pattern_start = arg_maxf(forward, sig_len) - pattern_len;
-    if(pattern_start < 0)
-        return 0;
-    memcpy(pattern, &forward[pattern_start], sizeof(float)*pattern_len);
-
-    // find the signal match for the backward
-    int32_t backward_start = match_filter(backward, sig_len, pattern, pattern_len, NULL);
-
-    // the signal offset in digit resolution : offset = backward_matched - forward_matched.
-    float sig_offset = backward_start - pattern_start;
-
-    // next, we use interpolation on zero cross moment to improve the the offset to sub digit resolution.
-    #define NUM_CROSS       10
-    float fw_cross[NUM_CROSS];
-    float bw_cross[NUM_CROSS];
-    // get the find zero crossing
-    uint32_t fw_cross_num = linear_interpolation_zerocrossing(
-            &forward[pattern_start], sig_len-pattern_start, fw_cross, NUM_CROSS);
-    uint32_t bw_cross_num = linear_interpolation_zerocrossing(
-            &backward[backward_start], sig_len-backward_start, bw_cross, NUM_CROSS);
-
-    // get the average of all crossing difference. (also want to add a median filter. )
-    float sub_digit_diff = 0;
-    uint32_t num_of_cross = MIN(bw_cross_num, fw_cross_num);
-    float zero_cross[NUM_CROSS];
-    for(uint32_t i=0; i<num_of_cross; i++){
-        zero_cross[i] = bw_cross[i] - fw_cross[i];
+    uint32_t cross = 0;
+    for(uint32_t i=0; i<sig_len-1 && cross<num_zero_cross; i++)
+    {
+        if(IS_SIGN_DIFF(sig[i], sig[i+1]))
+        {
+            // do interpolation using y=ax+b
+            float a = sig[i+1] - sig[i];    // a=(y2 - y1)/(x2 - x1) while x2 - x1 = 1
+            float b = sig[i];               // b=y1
+            float x = -b/a;                 // x=(y-b)/a zero crossing.
+            out[cross] = x + i;
+            // cross
+            cross++;
+        }
+        else if(sig[i] == 0) // in case there is a zero.
+        {
+            out[cross] = i;
+            cross++;
+        }
     }
-    // get rid of a few max and min, use the rest for average.
-    sort(zero_cross, num_of_cross);
-    // average
-    for(uint32_t i=2; i<num_of_cross-2; i++){
-        sub_digit_diff += zero_cross[i];
-    }
-    sub_digit_diff = sub_digit_diff/(num_of_cross - 4); // in a good match, this should be within -1 to 1
-
-    return sig_offset + sub_digit_diff;
+    return  cross;
 }
 
-// this function measure the propagation timing t
-// t: from first ADC measurement to the first matched zero cross of the pattern.
-// a offset should be made if the pattern doest not started at the very first cycle.
-float measure_signal_t(float* sig, uint32_t sig_len, float* pattern, uint32_t pattern_len)
-{
-    // find the signal match for the backward
-    uint32_t matched_idx = match_filter(pattern, pattern_len, sig, sig_len, NULL);
 
-    // using zero cross to gain sub-digit resolution
-    #define NUM_CROSS       10
-    float cross[NUM_CROSS];
-    uint32_t num_of_cross = linear_interpolation_zerocrossing(&sig[matched_idx], sig_len-matched_idx, cross, NUM_CROSS);
-
-    // get the average of all crossing difference. (also want to add a median filter. )
-    float sub_digit_diff = 0;
-    float period = (cross[num_of_cross-1] - cross[0])/num_of_cross;       // get the period.
-    float errors[NUM_CROSS] = {0};
-
-    for(uint32_t i=0; i<num_of_cross; i++){
-        errors[i] = cross[0] + i*period - cross[i];
-    }
-    // get rid of a few max and min, use the rest for average.
-    sort(errors, num_of_cross);
-    // average
-    for(uint32_t i=2; i<num_of_cross-2; i++){
-        sub_digit_diff += errors[i];
-    }
-    sub_digit_diff = sub_digit_diff/(num_of_cross - 4); // in a good match, this should be within -1 to 1
-
-    return matched_idx + sub_digit_diff;
-}
 
 // input the calibration signal (sampled when no signal)
 float get_zero_level(uint16_t* raw, uint32_t len)
@@ -273,39 +165,121 @@ float get_zero_level(uint16_t* raw, uint32_t len)
     return sum/len;
 }
 
-// this is to capture the pattern from a good signal.
-// the capture is from the first time the signal over "low_threshold" until the maximum amplitude.
-// in another word, it capture the raising of the amplitude part of the return signal.
-uint32_t capture_pattern(float* sig, uint32_t sig_len, float* pattern_out, uint32_t max_pattern_len, float low_threshold)
+int find_next_turning(float *sig, int len)
 {
-    uint32_t len;
-
-    // search the maximum, use it as the end point
-    uint32_t end_point = arg_maxf(sig, sig_len);
-    float max = sig[end_point];
-    float threshold = max*low_threshold;
-
-    // find starting point
-    uint32_t start_point;
-    for(uint32_t i=end_point; i>0; i--)
+    float pre_dt = sig[2]-sig[1]; // jump the first point for better stability
+    float dt = 0;
+    for(int i=2; i<len-1; i++)
     {
-        if(sig[i] - sig[i-1] < 0 && sig[i] > 0) // different sig, turning point
-        {
-            if(sig[i] <= threshold) // the first time below the threshold, set as pattern beginning.
-            {
-                start_point = i;
-                break;
-            }
-        }
+        dt = sig[i+1] - sig[i];
+        if(IS_SIGN_DIFF(pre_dt, dt))
+            return i;
+        pre_dt = dt;
+    }
+    return 0;
+}
+
+int find_prev_turning(float *sig, int len)
+{
+    float *p = sig;
+    float pre_dt = *(p-1) - *(p-2);
+    float dt = 0;
+    for(int i=2; i<len-1; i++)
+    {
+        dt = *(p-i) - *(p-i-1);
+        if(IS_SIGN_DIFF(pre_dt, dt))
+            return -i;
+        pre_dt = dt;
+    }
+    return 0;
+}
+
+// capture a few peak moment around the peak points
+// buffer size should equal to (peak_left_len + 1 + peak_right_len)
+// buffer is stored in peaks[][0] = index, peaks[][1] = value.
+int capture_peaks(float* sig, int sig_len, float peaks[][2], int peak_left_len, int peak_right_len, float threshold)
+{
+    int peak_detected_len = 0;
+    int max_idx = argmaxf(sig, sig_len); // this is the middle peak (main).
+    int peak_idx;
+    int max_distance_left = 25 * (peak_left_len +2);
+    int max_distance_right = 25 * (peak_right_len +2);
+    threshold = sig[max_idx] * threshold;
+
+    // main peak
+    peak_idx = peak_left_len;
+    peaks[peak_idx][0] = max_idx;
+    peaks[peak_idx][1] = sig[max_idx];
+    peak_detected_len ++;
+
+    // scan for the peak after max. (right)
+    int sig_idx = max_idx;          // signal start form the right of main peak.
+    peak_idx = peak_left_len + 1;  // start from the right of main peak.
+    for(int i=0; i<peak_right_len; i++)
+    {
+       int turning_idx = find_next_turning(&sig[sig_idx], sig_len - sig_idx);
+       if(turning_idx == 0)
+           break;
+       sig_idx += turning_idx;
+       if(sig_idx > sig_len || sig_idx - max_idx > max_distance_right) // max searching distance
+           break;
+
+       if(fabs(sig[sig_idx]) >= threshold)
+       {
+           peaks[peak_idx][0] = sig_idx;
+           peaks[peak_idx][1] = sig[sig_idx];
+           peak_idx ++;
+           peak_detected_len ++;
+       }
     }
 
-    // memcpy
-    len = end_point - start_point;
-    if(len>max_pattern_len)
-        len = max_pattern_len;
-    memcpy(pattern_out, &sig[start_point], len*sizeof(float));
+    // scan for the peak before max. (left)
+    sig_idx = max_idx;          // signal start form the left of main peak.
+    peak_idx = peak_left_len - 1;  // start from the left of main peak.
+    for(int i=peak_idx; i>=0 && peak_idx>=0; i--)
+    {
+       int turning_idx = find_prev_turning(&sig[sig_idx], sig_idx);
+       if(turning_idx == 0)
+           break;
+       sig_idx += turning_idx;
+       if(max_idx - sig_idx > max_distance_left) // maximum searching distance
+           break;
 
-    return len;
+       if(fabs(sig[sig_idx]) >= threshold)
+       {
+           peaks[peak_idx][0] = sig_idx;
+           peaks[peak_idx][1] = sig[sig_idx];
+           peak_idx --;
+           peak_detected_len ++;
+       }
+    }
+    return peak_detected_len;
+}
+
+// compare 2 peaks arrays, find offset of it.
+int find_peak_delay(float peaks1[][2], float peaks2[][2], int len, float mse[], int search_range)
+{
+    memset(mse, 0, sizeof(float)*search_range);
+    for(int off = -search_range/2; off<=search_range/2; off++)
+    {
+        float sum = 0;
+        float count = 0;
+        int start_idx = -off;
+        int stop_idx = len + off;
+        if(start_idx < 0) start_idx = 0;
+        if(stop_idx > len) stop_idx = len - off;
+        for(int i=start_idx; i<stop_idx; i++)
+        {
+            if(peaks1[i][0] !=0 && peaks2[i][0] != 0) //
+            {
+                float v = peaks1[i][1] - peaks2[i+off][1];
+                sum += v*v;
+                count++;
+            }
+        }
+        mse[off+search_range/2] = sum/count;
+    }
+    return arg_minf(mse, search_range) - (search_range/2 - 1);
 }
 
 // int16 -> float, also move data to zero_level. see if we need to scale it?
@@ -334,21 +308,13 @@ void test_channel(uint32_t ch)
 void test_print_raw()
 {
     for(int j=0; j<ADC_SAMPLE_LEN; j++)
-    {
         rt_kprintf("%d\n", adc_buffer[NORTH][j]);
-    }
     for(int j=0; j<ADC_SAMPLE_LEN; j++)
-    {
         rt_kprintf("%d\n", adc_buffer[SOUTH][j]);
-    }
     for(int j=0; j<ADC_SAMPLE_LEN; j++)
-    {
         rt_kprintf("%d\n", adc_buffer[EAST][j]);
-    }
     for(int j=0; j<ADC_SAMPLE_LEN; j++)
-    {
         rt_kprintf("%d\n", adc_buffer[WEST][j]);
-    }
 }
 
 // ref http://www.sengpielaudio.com/calculator-airpressure.htm
@@ -401,20 +367,26 @@ void thread_anemometer(void* parameters)
 
     // where the process started -> to avoid the direct sound propagation at the beginning. Depended on the mechanical structure.
     // Same unit of ADC sampling -> us.
-    //#define START_OFFSET (450)
-    #define PARTERN_LEN  (150)
+    #define DEADZONE_OFFSET (200)
+    #define VALID_LEN  (ADC_SAMPLE_LEN - DEADZONE_OFFSET)
+    #define ZEROCROSS_LEN   (10)
+
+    // to define the shape of to identify the echo beam
+    #define PEAK_LEFT   (4)
+    #define PEAK_MAIN   PEAK_LEFT
+    #define PEAK_RIGHT  (5)
+    #define PEAK_LEN    (PEAK_LEFT + PEAK_RIGHT + 1)
+    #define PEAK_ZC     (2)  // start from which peak to identify the zero crossing. (2=3rd)
+
     // the theoretical arrive time of the first pulse in calm wind and room temperature
     // it decides where to start capture the pulses. No need to be accurate
     int32_t START_OFFSET = sqrtf((pitch/2.f)*(pitch/2.f) + height*height) * 2.f / 340.f * 1000000;
     START_OFFSET = START_OFFSET - 50;
 
     // allocate for floating-point signal
-    #define MAX_PATTERN_LEN (300)
-    float* pattern_buf;
     float* sig;
-    pattern_buf = malloc(sizeof(float)* MAX_PATTERN_LEN);
     sig = malloc(sizeof(float) * ADC_SAMPLE_LEN);
-    if(!pattern_buf && !sig){
+    if(!sig){
         LOG_E("No memory for Anemometer data");
         return;
     }
@@ -430,7 +402,7 @@ void thread_anemometer(void* parameters)
     ane_pwr_control(80*1000, true);
 
     // cap charge
-    for(uint32_t i=0; i<40; i++)
+    for(uint32_t i=0; i<100; i++)
     {
         ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
         ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
@@ -444,11 +416,15 @@ void thread_anemometer(void* parameters)
         adc_sample((ULTRASONIC_CHANNEL)i, adc_buffer[i], ADC_SAMPLE_LEN);
         rt_thread_mdelay(10);
         adc_sample((ULTRASONIC_CHANNEL)i, adc_buffer[i], ADC_SAMPLE_LEN); // sample twice for more stable measurement.
-        zero_level[i] = get_zero_level(adc_buffer[i], ADC_SAMPLE_LEN);
+        zero_level[i] = get_zero_level(&adc_buffer[i][DEADZONE_OFFSET], VALID_LEN);
     }
+    printf("zeros: %.2f, %.2f, %.2f, %.2f\n", zero_level[0], zero_level[1], zero_level[2], zero_level[3]);
 
-    // all 4 ch
+    // collect zerocross base line for each channel.
     float static_zero_cross[4][10] = {0};
+    float echo_shape[4][PEAK_LEN][2] = {0};       // store the shape of the echo
+    memset(echo_shape, 0, sizeof(echo_shape));
+
     for(int idx = 0; idx < 4; idx ++)
     {
         for (int i = 0; i<10; i++)
@@ -458,18 +434,35 @@ void thread_anemometer(void* parameters)
             ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
             // convert to float
             preprocess(adc_buffer[idx], sig, zero_level[idx], ADC_SAMPLE_LEN);
-            float zero_cross[10] = {0};
-            linear_interpolation_zerocrossing(&sig[START_OFFSET], PARTERN_LEN, zero_cross, 10);
-            rt_thread_delay(10);
+            // normalize signal but not include the excitation.
+            normalize(&sig[DEADZONE_OFFSET], VALID_LEN);
+            // search original peaks, use to rough estimate the data.
+            float peaks_zero[PEAK_LEN][2];
+            memset(peaks_zero, 0, sizeof(peaks_zero));
+            capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, echo_shape[idx], PEAK_LEFT, PEAK_RIGHT, 0.2);
 
-            for(int j=0; j<10; j++)
+            // we start the crossing point from the PEAK_ZC
+            int off = echo_shape[idx][PEAK_ZC][0];
+            float zero_cross[ZEROCROSS_LEN] = {0};
+            linear_interpolation_zerocrossing(&sig[DEADZONE_OFFSET + off], VALID_LEN-off, zero_cross, ZEROCROSS_LEN);
+
+            // recover the actual timestamp from start
+            for(int j=0; j<ZEROCROSS_LEN; j++)
+                zero_cross[j] += off + DEADZONE_OFFSET;
+
+            // sum them up
+            for(int j=0; j<ZEROCROSS_LEN; j++)
                 static_zero_cross[idx][j] += zero_cross[j];
         }
-        for(int j=0; j<10; j++)
+        for(int j=0; j<ZEROCROSS_LEN; j++)
             static_zero_cross[idx][j] /= 10;
     }
+    // test
+    float *p = static_zero_cross;
+    for(int i=0; i<sizeof(static_zero_cross)/sizeof(float); i++)
+        printf("%f\n", *p++);
 
-    // for test
+//    // for test
 //    for (int i = 0; i<1; i++)
 //    {
 //        for(int idx = 0; idx < 4; idx ++)
@@ -502,41 +495,53 @@ void thread_anemometer(void* parameters)
         float dt[4] = {0};
         for(int idx = 0; idx < 4; idx ++)
         {
+            // offset to zero, and process
             preprocess(adc_buffer[idx], sig, zero_level[idx], ADC_SAMPLE_LEN);
+            // normalize to -1 to 1
+            normalize(&sig[DEADZONE_OFFSET], VALID_LEN);
 
-            // The match fileter takes around 40ms to run.
-            float sig2[ADC_SAMPLE_LEN];
-            float pattern[25] = {0};
-            for(int i=0; i<12; i++) pattern[i]= 1/12.f;
-            for(int i=13; i<25; i++) pattern[i]= -1/12.f;
-            match_filter(sig, ADC_SAMPLE_LEN, pattern, 25, sig2);
+            // Beside to use the signal peak to calculate the rough propagation time,
+            // We use a few more peak and valley around the main peaks.
+            // And use MSE to match the signals.  This is a shape detector.
+            // detect peaks as shape.
+            float shape[10][2];
+            memset(shape, 0, sizeof(shape));
+            capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, shape, PEAK_LEFT, PEAK_RIGHT, 0.4);
 
-            // match filter for 4.1
-            // 228 ms for the filtering.
-//            #define hi 1/50.f
-//            #define lo -hi
+            // use peak to find the offset if there is any on the main peak
+            float mse[5];
+            int peak_off = find_peak_delay(echo_shape[idx], shape, PEAK_LEN, mse, 5);
+
+            // finally we can locate the main peak, despite any distortion
+            int main_peak_idx = shape[PEAK_MAIN + peak_off][0];
+            if(peak_off)
+                LOG_W("peak offset %d", peak_off);
+
+//            for(int i=0; i<10; i++){
+//                printf("%d,%f\n", (int)shape[i][0], shape[i][1]);
+//            }
+
+            // we start the crossing point from the PEAK_ZC
+            int off = echo_shape[idx][PEAK_ZC][0];
+            float zero_cross[ZEROCROSS_LEN] = {0};
+            linear_interpolation_zerocrossing(&sig[DEADZONE_OFFSET + off], VALID_LEN-off, zero_cross, ZEROCROSS_LEN);
+            // recover the offsets
+            for(int j=0; j<ZEROCROSS_LEN; j++)
+                zero_cross[j] += off + DEADZONE_OFFSET;
+
+//            // match filter for 40khz square wave.
 //            float sig2[ADC_SAMPLE_LEN];
-//            float pattern[100] = {  hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi,
-//                                    lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo,
-//                                    hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi,
-//                                    lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo,
-//                                    hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi,
-//                                    lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo,
-//                                    lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo, lo,
-//                                    hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi, hi
-//            };
-//            match_filter(sig, ADC_SAMPLE_LEN, pattern, 100, sig2);
+//            float pattern[25] = {0};
+//            for(int i=0; i<12; i++) pattern[i]= 1/12.f;
+//            for(int i=13; i<25; i++) pattern[i]= -1/12.f;
+//            match_filter(sig, ADC_SAMPLE_LEN, pattern, 25, sig2);
 
 //            for(int i=0; i<ADC_SAMPLE_LEN; i++)
 //                printf("%f\n", sig[i] );
-//
+
 //            for(int i=0; i<ADC_SAMPLE_LEN; i++)
 //                printf("%f\n", sig2[i] );
 
-            // get zero crossing moment.
-            int zero_cross_size;
-            float zero_cross[10] = {0};
-            zero_cross_size = linear_interpolation_zerocrossing(&sig[START_OFFSET], PARTERN_LEN, zero_cross, 10);
 
             // average
             float diff_[10];
@@ -549,9 +554,8 @@ void thread_anemometer(void* parameters)
             for(int i=2; i<8; i++) {
                 dt[idx] += diff_[i];
             }
-            dt[idx] = dt[idx] /6;
+            dt[idx] = dt[idx]/6;
         }
-
         //printf("%3.3f,", dt[NORTH] - dt[SOUTH]);
 
         // try to calculate N-S
@@ -568,19 +572,28 @@ void thread_anemometer(void* parameters)
 
         float ns_v, ew_v; // wind speed
         float ns_c, ew_c; // sound speed -> these measurements should be very close, other wise the measurment is wrong.
+        float v, c;
+        float course;
         // wind speed.
         ns_v = height / (sin_a * cos_a) * (1.0f/dt[NORTH] - 1.0f/dt[SOUTH]);
         ew_v = height / (sin_a * cos_a) * (1.0f/dt[EAST] - 1.0f/dt[WEST]);
+        v = sqrtf(ns_v*ns_v + ew_v*ew_v);
         // sound speed
         ns_c = height / sin_a * (1.0f/dt[NORTH] + 1.0f/dt[SOUTH]);
         ew_c = height / sin_a * (1.0f/dt[EAST] + 1.0f/dt[WEST]);
+        c = (ns_c + ew_c)/2;
+        // course
+        course = atan2f(ns_v, ew_v)/3.1415926*180 + 180;
+        if(v < 1)
+            course = -1;
+
+        printf("%Course=%3.1fdegree, V=%2.1fm/s, C=%3.1fm/s, ns=%2.2fm/s, ew=%2.2fm/s\n", course, v, c, ns_v, ew_v);
 
         //LOG_I("run time %d ms", rt_tick_get() - tick);
 
-        //printf("%3.1f, %2.3f\n", ns_c, ns_v);
+        //printf("%3.1f, %2.3f,\n", ns_c, ns_v);
     }
 
-    free(pattern_buf);
     free(sig);
 }
 

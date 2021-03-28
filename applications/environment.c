@@ -51,7 +51,6 @@ void thread_environment(void* parameters)
         air_info.temperature = T;
         data_updated(&air_info.info);
 
-
         rt_thread_delay(2);
         //LOG_D("Humidity: %3.1f%%, Temp: %2.2f Degree, Pressure: %.3f Pa", H, T, P);
     }

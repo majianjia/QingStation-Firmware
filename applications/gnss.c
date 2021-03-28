@@ -110,7 +110,7 @@ int detect_bitrate(rt_device_t serial, uint32_t num_of_try)
     for(int i=0; i<sizeof(bitrate_table)/sizeof(int); i++)
     {
         int size;
-        char temp;
+        char temp = 0x01;
         LOG_D("try bitrate %dbps", bitrate_table[i]);
         struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
         config.baud_rate  =  bitrate_table[i];
@@ -120,17 +120,24 @@ int detect_bitrate(rt_device_t serial, uint32_t num_of_try)
         do{
             size = rt_device_read(serial, 0, &temp, 1);
         }while(size !=0);
+
         // test if characters are printable
         int try = num_of_try;
+        rt_tick_t start_tick = rt_tick_get();
         bool is_char = true;
         while(try--)
         {
+            temp = 0x01; // a !isprint() value
             do{
                 size = rt_device_read(serial, 0, &temp, 1);
-            }while(size == 0);
-
+            }while(size == 0 && rt_tick_get() - start_tick <= 1000);
             if(!isprint(temp) && (temp!='\n' && temp!='\r' && temp!='\0'))
                 is_char = false;
+            // time out
+            if(rt_tick_get() - start_tick > 1000){
+                is_char = false;
+                break;
+            }
         }
         if(is_char)
         {
@@ -228,12 +235,12 @@ void thread_gnss(void* p)
     }
 }
 
-int echo_gnss(int argc, void* argv[])
+int gnss_echo(int argc, void* argv[])
 {
     is_echo = !is_echo;
     return 0;
 }
-MSH_CMD_EXPORT(echo_gnss, echo gnss raw nmea message to cmd line)
+MSH_CMD_EXPORT(gnss_echo, echo gnss raw nmea message to cmd line)
 
 int thread_gnss_init()
 {
@@ -245,4 +252,4 @@ int thread_gnss_init()
     rt_thread_startup(tid);
     return RT_EOK;
 }
-INIT_APP_EXPORT(thread_gnss_init);
+ INIT_APP_EXPORT(thread_gnss_init);

@@ -23,7 +23,6 @@
 
 static void MX_DMA_Init(void)
 {
-
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
 
@@ -37,7 +36,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
-
 }
 
 // ADC init
@@ -75,7 +73,7 @@ static void MX_ADC2_Init(void)
    }
    /** Configure Regular Channel
    */
-   sConfig.Channel = ADC_CHANNEL_1;
+   sConfig.Channel = ADC_CHANNEL_5;
    sConfig.Rank = ADC_REGULAR_RANK_1;
    sConfig.SamplingTime = ADC_SAMPLETIME_12CYCLES_5;
    sConfig.SingleDiff = ADC_SINGLE_ENDED;
@@ -126,8 +124,6 @@ void TIM3_Init(uint32_t frequency)
 
 }
 
-
-
 // enable the power for all analog sections.
 // user code need to wait until signal and power supplies are stable.
 void ane_pwr_control(uint32_t freq, bool flag)
@@ -140,13 +136,15 @@ void ane_pwr_control(uint32_t freq, bool flag)
         rt_pin_mode(SW_PIN_EN, PIN_MODE_OUTPUT);
         rt_pin_mode(SW_PIN_A, PIN_MODE_OUTPUT);
         rt_pin_mode(SW_PIN_B, PIN_MODE_OUTPUT);
+        rt_pin_mode(DRV_PIN0, PIN_MODE_OUTPUT);
+        rt_pin_mode(DRV_PIN1, PIN_MODE_OUTPUT);
 
+        // enable analog power. see if we need it to be here.
         rt_pin_write(SW_PIN_EN, 1);
         rt_pin_write(SW_PIN_EN, 0);
 
         // ADC setting.
         MX_ADC2_Init();
-
         HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
 
         // timer
@@ -157,10 +155,16 @@ void ane_pwr_control(uint32_t freq, bool flag)
         HAL_ADC_DeInit(&hadc2);
         //timer
         HAL_TIM_Base_DeInit(&htim3);
+
+        // disable drivers
+        rt_pin_write(DRV_PIN0, PIN_MODE_OUTPUT);
+        rt_pin_write(DRV_PIN1, PIN_MODE_OUTPUT);
     }
     rt_pin_write(SW_PIN_EN, !flag);
     rt_pin_write(SW_PIN_A, GPIO_PIN_RESET);
     rt_pin_write(SW_PIN_B, GPIO_PIN_RESET);
+    rt_pin_write(DRV_PIN0, GPIO_PIN_RESET);
+    rt_pin_write(DRV_PIN1, GPIO_PIN_RESET);
 }
 
 // analog switch
@@ -169,21 +173,29 @@ void set_output_channel(ULTRASONIC_CHANNEL ch)
     // Although we can map the ch to the pin directly, we do an obvious way.
     // Again, when the receiver is also selected on the opposite of transmitter
     switch(ch){
-    case NORTH:
-        rt_pin_write(SW_PIN_A, GPIO_PIN_RESET);
-        rt_pin_write(SW_PIN_B, GPIO_PIN_RESET);
-        break;
-    case EAST:
-        rt_pin_write(SW_PIN_A, GPIO_PIN_SET);
-        rt_pin_write(SW_PIN_B, GPIO_PIN_RESET);
-        break;
     case SOUTH:
-        rt_pin_write(SW_PIN_A, GPIO_PIN_RESET);
-        rt_pin_write(SW_PIN_B, GPIO_PIN_SET);
+        rt_pin_write(SW_PIN_A, GPIO_PIN_RESET); // analog switch
+        rt_pin_write(SW_PIN_B, GPIO_PIN_RESET);
+        rt_pin_write(DRV_PIN0, GPIO_PIN_SET);   // driver 0. enable the sender's driver,
+        rt_pin_write(DRV_PIN1, GPIO_PIN_RESET); // disable the receiver's driver
         break;
     case WEST:
         rt_pin_write(SW_PIN_A, GPIO_PIN_SET);
+        rt_pin_write(SW_PIN_B, GPIO_PIN_RESET);
+        rt_pin_write(DRV_PIN0, GPIO_PIN_SET);   // driver 0
+        rt_pin_write(DRV_PIN1, GPIO_PIN_RESET);
+        break;
+    case NORTH:
+        rt_pin_write(SW_PIN_A, GPIO_PIN_RESET);
         rt_pin_write(SW_PIN_B, GPIO_PIN_SET);
+        rt_pin_write(DRV_PIN0, GPIO_PIN_RESET);  // driver 1
+        rt_pin_write(DRV_PIN1, GPIO_PIN_SET);
+        break;
+    case EAST:
+        rt_pin_write(SW_PIN_A, GPIO_PIN_SET);
+        rt_pin_write(SW_PIN_B, GPIO_PIN_SET);
+        rt_pin_write(DRV_PIN0, GPIO_PIN_RESET);  // driver 1
+        rt_pin_write(DRV_PIN1, GPIO_PIN_SET);
         break;
     default: break;
     }
@@ -242,8 +254,10 @@ int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len, u
 {
     set_output_channel(ch);
     // see if delay needed. and see if need to perform zero_level sampling here.
-    rt_thread_delay(10);
+    // >1ms is enough for the drivers to raise enough charge.
+    rt_thread_delay(5);
 
+    // disable interrupt to ensure the time is same.
     rt_enter_critical();
     send_pulse(pulse, pulse_len);
     start_sampling(adc_buf, adc_len);
