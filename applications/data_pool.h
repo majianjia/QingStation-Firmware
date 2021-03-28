@@ -70,6 +70,14 @@ typedef struct _orientation_t {
 } orientation_t;
 extern orientation_t orientation;
 
+typedef struct _anemometer_t {
+    sensor_info_t info;
+    float course;
+    float speed;
+    float soundspeed;
+} anemometer_t;
+extern anemometer_t anemometer;
+
 typedef struct _air_info_t {
     sensor_info_t info;
     float pressure;

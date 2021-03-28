@@ -255,7 +255,7 @@ int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len, u
     set_output_channel(ch);
     // see if delay needed. and see if need to perform zero_level sampling here.
     // >1ms is enough for the drivers to raise enough charge.
-    rt_thread_delay(5);
+    rt_thread_delay(15); // this cannot be smaller than 10
 
     // disable interrupt to ensure the time is same.
     rt_enter_critical();

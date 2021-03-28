@@ -266,11 +266,13 @@ void load_default_config(system_config_t* sys)
 
     // analog, channel is fixed on board. setting doesnt matter.
     s = new_sensor("Anemometer", "adc_ch5");
+    s->update_rate = 1;
+    s->oversampling = 1;
     if(s == NULL) return;
     anemometer_config_t* ane_cfg = malloc(sizeof(anemometer_config_t));
     if(ane_cfg == NULL) return;
     memset(ane_cfg, 0, sizeof(anemometer_config_t));
-    ane_cfg->height = 0.05f;     // default, normally set to 5 cm
+    ane_cfg->height = 0.048f;     // default, normally set to 5 cm
     ane_cfg->pitch = 0.04f;      // defualt pitch, based on the 3D file
     s->user_data = ane_cfg;
     s->create_json = anemo_create_json;
@@ -293,7 +295,7 @@ void load_default_config(system_config_t* sys)
     strcpy(sys->record.root_path, "/");
 
     // log
-    sys->log.is_enable = true;
+    sys->log.is_enable = false;
     sys->log.is_repeat_header = true;
     strcpy(sys->log.header,"temp,humidity,pressure,light,num_sat,latitude,longitude");
     sys->log.period = 30000;

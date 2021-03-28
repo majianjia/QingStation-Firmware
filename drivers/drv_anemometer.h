@@ -25,6 +25,13 @@ typedef enum {
     WEST
 } ULTRASONIC_CHANNEL;
 
+static char ane_ch_names[][2] = {
+    "N",
+    "E",
+    "S",
+    "W"
+};
+
 // pin for analog swith selection.
 #define DRV_PIN0    GET_PIN(A, 5)
 #define DRV_PIN1    GET_PIN(B, 2)

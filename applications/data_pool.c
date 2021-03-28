@@ -23,6 +23,7 @@ acc_t acc;
 mag_t mag;
 orientation_t orientation;
 air_info_t air_info;
+anemometer_t anemometer;
 light_info_t light_info;
 rain_t rain;
 lightning_t lightning;
