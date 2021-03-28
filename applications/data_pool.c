@@ -18,6 +18,7 @@
 
 #include "data_pool.h"
 
+// instances
 gyro_t gyro;
 acc_t acc;
 mag_t mag;
@@ -28,7 +29,6 @@ light_info_t light_info;
 rain_t rain;
 lightning_t lightning;
 gnss_t gnss;
-
 
 /* simple getters */ // deprecated
 float get_unknown(){return -1;}
@@ -65,6 +65,10 @@ float get_gnss_altitude(){return gnss.altitude;}
 float get_gnss_course(){return gnss.course;}
 float get_gnss_num_sat(){return gnss.num_sat;}
 float get_gnss_fixed(){return (int)gnss.is_fixed;}
+float get_ane_course(){return anemometer.course;}
+float get_ane_speed(){return anemometer.speed;}
+float get_ane_soundspeed(){return anemometer.soundspeed;}
+
 
 /* here we map data to their names,
  * so the log and recorder can be easily define which data we want by simply passing a header */
@@ -102,7 +106,10 @@ float (*get_data[])() = {
         get_gnss_altitude,
         get_gnss_course,
         get_gnss_num_sat,
-        get_gnss_fixed
+        get_gnss_fixed,
+        get_ane_course,
+        get_ane_speed,
+        get_ane_soundspeed
 };
 
 /* simple getters */
@@ -140,7 +147,9 @@ int print_gnss_altitude(char*buf){return sprintf(buf, "%.2f", gnss.altitude);}
 int print_gnss_course(char*buf){return sprintf(buf, "%.1f", gnss.course);}
 int print_gnss_num_sat(char*buf){return sprintf(buf, "%d", gnss.num_sat);}
 int print_gnss_fixed(char*buf){if(gnss.is_fixed) return sprintf(buf, "true"); else return sprintf(buf, "false");}
-
+int print_ane_course(char*buf){return sprintf(buf, "%.2f", anemometer.course);}
+int print_ane_speed(char*buf){return sprintf(buf, "%.2f", anemometer.speed);}
+int print_ane_soundspeed(char*buf){return sprintf(buf, "%.2f", anemometer.soundspeed);}
 
 /* here we map data to their names,
  * so the log and recorder can be easily define which data we want by simply passing a header */
@@ -178,7 +187,10 @@ int (*print_data[])(char* ) = {
         print_gnss_altitude,
         print_gnss_course,
         print_gnss_num_sat,
-        print_gnss_fixed
+        print_gnss_fixed,
+        print_ane_course,
+        print_ane_speed,
+        print_ane_soundspeed
 };
 
 /*  names of data is corresponded to the above data getters. */
@@ -216,7 +228,10 @@ const char data_name[][DATA_NAME_MAX_LEN] = {
         "altitude",
         "course",
         "num_sat",
-        "fixed"
+        "fixed",
+        "windcourse",
+        "windspeed",
+        "sndspeed"
 };
 
 /* find the index of the getter (and name) */

@@ -295,9 +295,9 @@ void load_default_config(system_config_t* sys)
     strcpy(sys->record.root_path, "/");
 
     // log
-    sys->log.is_enable = false;
+    sys->log.is_enable = true;
     sys->log.is_repeat_header = true;
-    strcpy(sys->log.header,"temp,humidity,pressure,light,num_sat,latitude,longitude");
+    strcpy(sys->log.header,"temp,humidity,pressure,light,num_sat,latitude,longitude,windspeed");
     sys->log.period = 30000;
 
     // test

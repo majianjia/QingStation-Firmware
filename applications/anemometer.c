@@ -459,10 +459,10 @@ void thread_anemometer(void* parameters)
     for(int idx = 0; idx < 4; idx ++)
         for(int j=0; j<ZEROCROSS_LEN; j++)
             static_zero_cross[idx][j] /= 10;
-    // test
-    float *p = &static_zero_cross[0][0];
-    for(int i=0; i<sizeof(static_zero_cross)/sizeof(float); i++)
-        printf("%f\n", *p++);
+//    // test
+//    float *p = &static_zero_cross[0][0];
+//    for(int i=0; i<sizeof(static_zero_cross)/sizeof(float); i++)
+//        printf("%f\n", *p++);
 
 //    // for test
 //    for (int i = 0; i<1; i++)
@@ -512,6 +512,7 @@ void thread_anemometer(void* parameters)
         ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
         ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
 
+        // to record the runtime
         rt_tick_t tick = rt_tick_get();
 
         float dt[4] = {0};
@@ -597,7 +598,7 @@ void thread_anemometer(void* parameters)
             ew_v_acc = 0;
             oversampling_count = 0;
 
-            printf("%3.1f, %3.1f, %2.3f,\n", anemometer.course, anemometer.soundspeed, anemometer.speed);
+            //printf("%3.1f, %3.1f, %2.3f,\n", anemometer.course, anemometer.soundspeed, anemometer.speed);
         }
 
         //printf("Course=%3.1fdegree, V=%2.1fm/s, C=%3.1fm/s, ns=%2.2fm/s, ew=%2.2fm/s\n", course, v, c, ns_v, ew_v);
