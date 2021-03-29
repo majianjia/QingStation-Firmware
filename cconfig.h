@@ -12,7 +12,7 @@
 
 #define HAVE_FDSET 1
 #define HAVE_SIGACTION 1
-#define GCC_VERSION "5.4.1 20160919 (release) [ARM/embedded-5-branch revision 240496]"
+#define GCC_VERSION_STR "5.4.1 20160919 (release) [ARM/embedded-5-branch revision 240496]"
 #define STDC "2011"
 
 #endif

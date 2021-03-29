@@ -5,12 +5,11 @@
 /* Program Entry, set to mark it as "used" and avoid gc */
 MEMORY
 {
-ROM (rx) : ORIGIN =0x08000000,LENGTH =1024k
-RAM (rw) : ORIGIN =0x20000000,LENGTH =96k
-RAM2 (rw) : ORIGIN =0x10000000,LENGTH =32k
+    ROM (rx) : ORIGIN = 0x08000000, LENGTH =  1024k /* 1024K flash */
+    RAM (rw) : ORIGIN = 0x20000000, LENGTH =  96k /* 96K sram */
 }
 ENTRY(Reset_Handler)
-_system_stack_size = 0x200;
+_system_stack_size = 0x400;
 
 SECTIONS
 {

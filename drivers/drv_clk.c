@@ -16,7 +16,7 @@
 #include "drv_common.h"
 
 #define DBG_TAG "board"
-#define DBG_LVL DBG_LOG
+#define DBG_LVL DBG_INFO
 #include <rtdbg.h>
 
 void system_clock_config(int target_freq_mhz)
@@ -58,11 +58,11 @@ void system_clock_config(int target_freq_mhz)
 
 int clock_information(void)
 {
-//    rt_kprintf("System Clock information\n");
-//    rt_kprintf("SYSCLK_Frequency = %d\n", HAL_RCC_GetSysClockFreq());
-//    rt_kprintf("HCLK_Frequency   = %d\n", HAL_RCC_GetHCLKFreq());
-//    rt_kprintf("PCLK1_Frequency  = %d\n", HAL_RCC_GetPCLK1Freq());
-//    rt_kprintf("PCLK2_Frequency  = %d\n", HAL_RCC_GetPCLK2Freq());
+    LOG_D("System Clock information");
+    LOG_D("SYSCLK_Frequency = %d", HAL_RCC_GetSysClockFreq());
+    LOG_D("HCLK_Frequency   = %d", HAL_RCC_GetHCLKFreq());
+    LOG_D("PCLK1_Frequency  = %d", HAL_RCC_GetPCLK1Freq());
+    LOG_D("PCLK2_Frequency  = %d", HAL_RCC_GetPCLK2Freq());
 
     return RT_EOK;
 }
@@ -70,9 +70,10 @@ INIT_BOARD_EXPORT(clock_information);
 
 void clk_init(char *clk_source, int source_freq, int target_freq)
 {
-    //system_clock_config(target_freq);
-
-    // use cubemx's clock configuration instead.
-    extern void SystemClock_Config(void); // in cubemx/core/main
+    /*
+     * Use SystemClock_Config generated from STM32CubeMX for clock init
+     * system_clock_config(target_freq);
+     */
+    extern void SystemClock_Config(void);
     SystemClock_Config();
 }

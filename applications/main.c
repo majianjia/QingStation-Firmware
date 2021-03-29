@@ -13,6 +13,8 @@
 #include <rtthread.h>
 #include <board.h>
 #include <rtdevice.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define DBG_TAG "main"
 #define DBG_LVL DBG_LOG

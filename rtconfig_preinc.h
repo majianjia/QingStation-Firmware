@@ -7,6 +7,7 @@
 
 #define HAVE_CCONFIG_H
 #define RT_USING_NEWLIB
+#define __RTTHREAD__
 #define _REENT_SMALL
 
 #endif /*RTCONFIG_PREINC_H__*/

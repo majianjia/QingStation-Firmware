@@ -47,7 +47,7 @@
 #define RT_CONSOLEBUF_SIZE 256
 #define RT_CONSOLE_DEVICE_NAME "uart3"
 /* end of Kernel Device Object */
-#define RT_VER_NUM 0x40002
+#define RT_VER_NUM 0x40003
 /* end of RT-Thread Kernel */
 #define ARCH_ARM
 #define RT_USING_CPU_FFS
@@ -98,6 +98,8 @@
 #define RT_DFS_ELM_WORD_ACCESS
 #define RT_DFS_ELM_USE_LFN_3
 #define RT_DFS_ELM_USE_LFN 3
+#define RT_DFS_ELM_LFN_UNICODE_0
+#define RT_DFS_ELM_LFN_UNICODE 0
 #define RT_DFS_ELM_MAX_LFN 255
 #define RT_DFS_ELM_DRIVES 2
 #define RT_DFS_ELM_MAX_SECTOR_SIZE 512
@@ -128,6 +130,10 @@
 #define RT_MMCSD_MAX_PARTITION 16
 #define RT_SDIO_DEBUG
 #define RT_USING_SPI
+#define RT_USING_AUDIO
+#define RT_AUDIO_REPLAY_MP_BLOCK_SIZE 4096
+#define RT_AUDIO_REPLAY_MP_BLOCK_COUNT 2
+#define RT_AUDIO_RECORD_PIPE_SIZE 2048
 
 /* Using USB */
 
@@ -139,6 +145,7 @@
 #define RT_USB_DEVICE_CDC
 #define RT_USB_DEVICE_NONE
 #define RT_VCOM_TASK_STK_SIZE 512
+#define RT_CDC_RX_BUFSIZE 128
 #define RT_VCOM_TX_USE_DMA
 #define RT_VCOM_SERNO "32021919830108"
 #define RT_VCOM_SER_LEN 14
@@ -169,7 +176,7 @@
 /* AT commands */
 
 #define RT_USING_AT
-#define AT_SW_VERSION_NUM 0x10300
+#define AT_SW_VERSION_NUM 0x10301
 /* end of AT commands */
 /* end of Network */
 
