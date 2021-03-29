@@ -21,7 +21,7 @@
 #include "data_pool.h"
 
 #define DBG_TAG "anemo"
-#define DBG_LVL LOG_LVL_INFO
+#define DBG_LVL LOG_LVL_DBG
 #include <rtdbg.h>
 
 #ifndef MAX
@@ -133,10 +133,16 @@ static void sort(float arr[], uint32_t len)
 // output the offset of the signal in sub-digit resolution.
 int linear_interpolation_zerocrossing(float* sig, uint32_t sig_len, float* out, uint32_t num_zero_cross)
 {
+    #define IS_SIGN_DIFF_NO_ZERO(a, b) (a*b<0)
     uint32_t cross = 0;
     for(uint32_t i=0; i<sig_len-1 && cross<num_zero_cross; i++)
     {
-        if(IS_SIGN_DIFF(sig[i], sig[i+1]))
+        if(sig[i] == 0) // in case there is a zero.
+        {
+            out[cross] = i;
+            cross++;
+        }
+        else if(IS_SIGN_DIFF_NO_ZERO(sig[i], sig[i+1]))
         {
             // do interpolation using y=ax+b
             float a = sig[i+1] - sig[i];    // a=(y2 - y1)/(x2 - x1) while x2 - x1 = 1
@@ -146,11 +152,7 @@ int linear_interpolation_zerocrossing(float* sig, uint32_t sig_len, float* out, 
             // cross
             cross++;
         }
-        else if(sig[i] == 0) // in case there is a zero.
-        {
-            out[cross] = i;
-            cross++;
-        }
+
     }
     return  cross;
 }
@@ -338,6 +340,8 @@ void thread_anemometer(void* parameters)
     sensor_config_t * cfg;
     anemometer_config_t * ane_cfg;
 
+    rt_thread_delay(3000);
+
     // waiting for configuration load
     do{
         cfg = get_sensor_config_wait("Anemometer");
@@ -379,7 +383,7 @@ void thread_anemometer(void* parameters)
     #define NUM_ZC_AVG      (5) // number of zerocrossing to calculate the beam location.
 
     // to define the shape of to identify the echo beam
-    #define PEAK_LEFT   (3)
+    #define PEAK_LEFT   (4)
     #define PEAK_MAIN   PEAK_LEFT
     #define PEAK_RIGHT  (5)
     #define PEAK_LEN    (PEAK_LEFT + PEAK_RIGHT + 1)
@@ -397,7 +401,7 @@ void thread_anemometer(void* parameters)
     }
 
     // zero_level for all direction. see if needed.
-    float zero_level[4]= {2048, 2048, 2048, 2048};
+    float zero_level[4]= {0};
 
     // hardware power_on
     ane_pwr_control(80*1000, true);
@@ -405,20 +409,21 @@ void thread_anemometer(void* parameters)
     // cap charge
     for(uint32_t i=0; i<50; i++)
     {
-        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
-        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
         ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
+        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
         ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
+        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
     }
 
     // measure zero_level - calibration.
-    for(uint32_t i=0; i<4; i++){
-        rt_thread_mdelay(10);
-        adc_sample((ULTRASONIC_CHANNEL)i, adc_buffer[i], ADC_SAMPLE_LEN);
-        rt_thread_mdelay(10);
-        adc_sample((ULTRASONIC_CHANNEL)i, adc_buffer[i], ADC_SAMPLE_LEN); // sample twice for more stable measurement.
-        zero_level[i] = get_zero_level(&adc_buffer[i][DEADZONE_OFFSET], VALID_LEN);
+    for (int i = 0; i<20; i++){
+        for(uint32_t idx=0; idx < 4; idx++){
+            adc_sample((ULTRASONIC_CHANNEL)idx, adc_buffer[idx], ADC_SAMPLE_LEN); // sample twice for more stable measurement.
+            zero_level[idx] += get_zero_level(&adc_buffer[idx][DEADZONE_OFFSET], VALID_LEN);
+        }
     }
+    for(int idx = 0; idx < 4; idx ++)
+        zero_level[idx] /= 20;
     printf("zeros: %.2f, %.2f, %.2f, %.2f\n", zero_level[0], zero_level[1], zero_level[2], zero_level[3]);
 
     // collect zerocross base line for each channel.
@@ -429,10 +434,16 @@ void thread_anemometer(void* parameters)
 
     for (int i = 0; i<10; i++)
     {
+        rt_thread_mdelay(10);
+        ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
+        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
+        ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
+        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
+
         for(int idx = 0; idx < 4; idx ++)
         {
             // make a sample
-            ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
+            //ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
             // convert to float
             preprocess(adc_buffer[idx], sig, zero_level[idx], ADC_SAMPLE_LEN);
             // normalize signal but not include the excitation.
@@ -440,10 +451,10 @@ void thread_anemometer(void* parameters)
             // search original peaks, use to rough estimate the data.
             float peaks_zero[PEAK_LEN][2];
             memset(peaks_zero, 0, sizeof(peaks_zero));
-            capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, echo_shape[idx], PEAK_LEFT, PEAK_RIGHT, 0.2);
+            capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, peaks_zero, PEAK_LEFT, PEAK_RIGHT, 0.2);
 
             // we start the crossing point from the PEAK_ZC
-            int off = echo_shape[idx][PEAK_ZC][0];
+            int off = peaks_zero[PEAK_ZC][0];
             float zero_cross[ZEROCROSS_LEN] = {0};
             linear_interpolation_zerocrossing(&sig[DEADZONE_OFFSET + off], VALID_LEN-off, zero_cross, ZEROCROSS_LEN);
 
@@ -454,12 +465,44 @@ void thread_anemometer(void* parameters)
             // sum them up
             for(int j=0; j<ZEROCROSS_LEN; j++)
                 static_zero_cross[idx][j] += zero_cross[j];
+
+            // index average0
+            for(int j=0; j<PEAK_LEN; j++)
+            {
+                echo_shape[idx][j][0] += peaks_zero[j][0];
+                echo_shape[idx][j][1] += peaks_zero[j][1];
+            }
         }
     }
     for(int idx = 0; idx < 4; idx ++)
         for(int j=0; j<ZEROCROSS_LEN; j++)
             static_zero_cross[idx][j] /= 10;
-//    // test
+
+    for(int idx = 0; idx < 4; idx ++)
+        for(int j=0; j<PEAK_LEN; j++){
+            echo_shape[idx][j][0] /= 10;
+            echo_shape[idx][j][1] /= 10;
+        }
+
+    // record raw
+    recorder = recorder_create("/raw.csv", "adc", 64, 20000);
+    for (int i = 0; i<100; i++)
+    {
+        for(int idx = 0; idx < 4; idx ++)
+        {
+            ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
+        }
+        for(int j=0; j<ADC_SAMPLE_LEN; j++)
+        {
+            sprintf(str_buf, "%d\n", adc_buffer[0][j]);
+            while(recorder_write(recorder, str_buf) != RT_EOK)
+                rt_thread_delay(1);
+        }
+    }
+    recorder_delete(recorder);
+
+
+    // test
 //    float *p = &static_zero_cross[0][0];
 //    for(int i=0; i<sizeof(static_zero_cross)/sizeof(float); i++)
 //        printf("%f\n", *p++);
@@ -506,6 +549,7 @@ void thread_anemometer(void* parameters)
         if(!cfg->is_enable)
             continue;
 
+        rt_thread_mdelay(period/16);
         // make a sample
         ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
         ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
@@ -587,9 +631,14 @@ void thread_anemometer(void* parameters)
             ns_v_acc /= oversampling_count;
             ew_v_acc /= oversampling_count;
 
-            anemometer.course = atan2f(-ew_v_acc, -ns_v_acc)/3.1415926*180 + 180;
             anemometer.speed = v_acc;
             anemometer.soundspeed = c_acc;
+
+            if(v_acc >= 0.5)
+                anemometer.course = atan2f(-ew_v_acc, -ns_v_acc)/3.1415926*180 + 180;
+            else
+                anemometer.course = -1;
+
             data_updated(&anemometer.info);
 
             v_acc = 0;
@@ -601,7 +650,7 @@ void thread_anemometer(void* parameters)
             //printf("%3.1f, %3.1f, %2.3f,\n", anemometer.course, anemometer.soundspeed, anemometer.speed);
         }
 
-        //printf("Course=%3.1fdegree, V=%2.1fm/s, C=%3.1fm/s, ns=%2.2fm/s, ew=%2.2fm/s\n", course, v, c, ns_v, ew_v);
+        printf("Course=%3.1fdegree, V=%2.1fm/s, C=%3.1fm/s, ns=%2.2fm/s, ew=%2.2fm/s\n", course, v, c, ns_v, ew_v);
 
 //        LOG_I("run time %d ms", rt_tick_get() - tick);
 //
@@ -616,7 +665,7 @@ void thread_anemometer(void* parameters)
 int thread_anemometer_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*4, 10, 1000);
+    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*4, 3, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

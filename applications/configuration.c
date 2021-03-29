@@ -290,7 +290,7 @@ void load_default_config(system_config_t* sys)
     // recorder
     sys->record.is_enable = true;
     sys->record.is_split_file = false;
-    strcpy(sys->record.header, "temp,humidity,pressure,red,green,blue,infrared");
+    strcpy(sys->record.header, "temp,humidity,pressure,light,num_sat,latitude,longitude,windcourse,windspeed,sndspeed");
     sys->record.period = 1000;
     strcpy(sys->record.root_path, "/");
 
@@ -298,7 +298,7 @@ void load_default_config(system_config_t* sys)
     sys->log.is_enable = true;
     sys->log.is_repeat_header = true;
     strcpy(sys->log.header,"temp,humidity,pressure,light,num_sat,latitude,longitude,windspeed");
-    sys->log.period = 30000;
+    sys->log.period = 10000;
 
     // test
     sys->ane_record_pulse = false;

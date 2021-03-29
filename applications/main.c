@@ -99,7 +99,7 @@ int main(void)
     while (1)
     {
         //LOG_D("Hello RT-Thread!");
-        //rt_pin_write(LED0_PIN, count % 2);
+        rt_pin_write(LED0_PIN, count % 2);
         //rt_pin_write(LED1_PIN, count % 2);
         rt_thread_delay(500);
         count++;

@@ -28,7 +28,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   /* DMA1_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
@@ -108,6 +108,7 @@ void TIM3_Init(uint32_t frequency)
   {
     Error_Handler();
   }
+
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 100;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH; // must not change
@@ -123,6 +124,7 @@ void TIM3_Init(uint32_t frequency)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
 }
+
 
 // enable the power for all analog sections.
 // user code need to wait until signal and power supplies are stable.
@@ -202,22 +204,20 @@ void set_output_channel(ULTRASONIC_CHANNEL ch)
 }
 
 // send a sequence of pulse at frequency and the num of size.
-static void send_pulse(uint16_t* pulses, uint16_t length)
+static inline void send_pulse(uint16_t* pulses, uint16_t length)
 {
     // the length here is in bytes.
     HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1, (uint32_t*)pulses, length * sizeof(uint16_t));
 }
+
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
     if(htim->Instance == TIM3)
+    {
          HAL_TIM_PWM_Stop_DMA(&htim3, TIM_CHANNEL_1);
+    }
 }
 
-// start ADC sampling.
-static void start_sampling(uint16_t* buffer, uint32_t length)
-{
-    HAL_ADC_Start_DMA(&hadc2, (uint32_t*)buffer, length);
-}
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
@@ -230,23 +230,28 @@ bool ane_check_busy()
     return ((HAL_ADC_GetState(&hadc2) & HAL_ADC_STATE_REG_BUSY) != 0UL);
 }
 
-// input: the RECEIVER side that willing to take the sample.
-int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len)
+// start ADC sampling.
+static inline void start_sampling(uint16_t* buffer, uint32_t length)
 {
-    // convert the receiver channel to transmitter channel
-    switch(ch){
-    case NORTH: ch=SOUTH; break;
-    case SOUTH: ch=NORTH; break;
-    case WEST: ch=EAST; break;
-    case EAST: ch=WEST; break;
-    }
-    set_output_channel(ch);
-    rt_thread_delay(10);
-    start_sampling(adc_buf, adc_len);
-    return 0;
+    HAL_ADC_Start_DMA(&hadc2, (uint32_t*)buffer, length);
+}
+
+// start ADC sampling.
+static inline void setup_adc_sampling(uint16_t* buffer, uint32_t length)
+{
 }
 
 
+// input: the RECEIVER side that willing to take the sample.
+int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len)
+{
+    set_output_channel(ch);
+    rt_thread_delay(15);
+    HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_buf, adc_len);
+    while(ane_check_busy())
+        rt_thread_delay(1);
+    return 0;
+}
 
 // test functions
 // send a pulse from CH side, then sample the opposite side ADC data. NORTH -> SOUTH
@@ -264,11 +269,10 @@ int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len, u
     rt_exit_critical();
 
     // user need to wait for the ADC sampling.
-    rt_thread_delay(2);
+    while(ane_check_busy())
+        rt_thread_delay(1);
     return 0;
 }
-
-
 
 void DMA1_Channel2_IRQHandler(void)
 {
