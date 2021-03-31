@@ -17,6 +17,8 @@
 #include "stdio.h"
 #include "drv_sdio.h"
 
+#include "ulog_file.h"
+
 #define DBG_TAG "sdcard"
 #define DBG_LVL DBG_LOG
 #include <rtdbg.h>
@@ -79,6 +81,7 @@ void thread_sdcard(void *parameters)
             {
                 // mount
                 sdcard_mount("/");
+                ulog_file_backend_init();
                 is_sd_inited = 1;
             }
         }
@@ -88,6 +91,7 @@ void thread_sdcard(void *parameters)
         {
             // unmount
             sdcard_unmount("/");
+            ulog_file_backend_deinit();
             is_sd_inited = 0;
         }
 

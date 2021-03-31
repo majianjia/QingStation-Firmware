@@ -31,7 +31,7 @@ void thread_record(void* parameters)
 {
     uint16_t orders[32];
     uint32_t data_len = 0;
-    char line[512] = {0};
+    char line[256] = {0};
     time_t timep;
     // wait until system cfg loaded
     while(!is_system_cfg_valid() && system_config.record.is_enable)
@@ -42,7 +42,7 @@ void thread_record(void* parameters)
     time(&timep);
     strftime(line, 64, "%Y%m%d_%H%M%S", gmtime(&timep));
     char filepath[128];
-    snprintf(filepath, 128, "%s/%s_%s", system_config.record.root_path, line,"test.csv");
+    snprintf(filepath, 128, "%s/%s_%s", system_config.record.root_path, line,"log.csv");
 
     recorder_t* recorder = recorder_create(filepath, "rec", 256, 2000);
 
@@ -60,7 +60,7 @@ void thread_record(void* parameters)
     // copy for us to destroy :p
     // get what data do we want.
     strncpy(line, system_config.record.header, 256);
-    data_len = get_data_orders(line, ",", orders, 32);
+    data_len = get_data_orders(line, ", ", orders, 32);
 
     while(1)
     {
@@ -74,7 +74,7 @@ void thread_record(void* parameters)
         index += strftime(&line[index], 32, "%H%M%S",  gmtime(&timep));
 
         // print each data to the str
-        for(uint32_t i=0; i<data_len; i++ )
+        for(uint32_t i=0; i<data_len; i++)
         {
             index+= sprintf(&line[index],",");
             index+= print_data[orders[i]](&line[index]);
@@ -94,7 +94,7 @@ void thread_record(void* parameters)
 int thread_record_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("rec", thread_record, RT_NULL, 2048+512, 20, 1000);
+    tid = rt_thread_create("rec", thread_record, RT_NULL, 2048+512, 18, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

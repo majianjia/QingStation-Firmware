@@ -41,7 +41,7 @@ void thread_log(void* parameters)
 
     // copy for us to destroy :p
     strncpy(str_buf, system_config.log.header, 256);
-    data_len = get_data_orders(str_buf, ",", orders, 32);
+    data_len = get_data_orders(str_buf, ", ", orders, 32);
 
     //
     is_repeated_header = system_config.log.is_repeat_header;

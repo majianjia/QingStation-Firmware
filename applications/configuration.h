@@ -95,10 +95,12 @@ typedef struct _anemometer_config_t
 {
     float height;   // height of reflective plate to transducer.
     float pitch;    // pitch size between transducer.
+    float pulse_offset[4]; // time offset for each channel.
 } anemometer_config_t;
 
 extern system_config_t system_config;
 bool is_system_cfg_valid();
+int save_system_cfg_to_file();
 sensor_config_t* get_sensor_config(char *name);
 sensor_config_t* get_sensor_config_wait(char *name);
 

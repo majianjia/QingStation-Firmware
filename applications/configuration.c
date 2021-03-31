@@ -25,6 +25,7 @@
 #include <dfs_posix.h>
 #include <stdbool.h>
 
+#include "drv_anemometer.h"
 
 #include "cjson/cjson.h"
 
@@ -35,15 +36,17 @@
 
 void add_sensor(sensor_config_t* list, sensor_config_t* new_sensor)
 {
-    if(list && new_sensor)
+    if(new_sensor)
     {
-        while(list->next != NULL){
-            list = list->next;
+        sensor_config_t* p = list;
+        while(p){
+            if(p == new_sensor) return;
+            p = p->next;
         }
+
+        while(list->next != NULL)
+            list = list->next;
         list->next = new_sensor;
-    }
-    else if (list==NULL){
-        list = new_sensor;
     }
 }
 
@@ -132,13 +135,16 @@ sensor_config_t* new_sensor(char* name, char* interface)
 {
     sensor_config_t def_sensor_cfg = DEFAULT_SENSOR_CONFIG;
     sensor_config_t* s;
-    s = malloc(sizeof(sensor_config_t));
-    if(!s)
-        return NULL;
-    memset(s, 0, sizeof(sensor_config_t));
-    memcpy(s, &def_sensor_cfg, sizeof(sensor_config_t));
-    strncpy(s->name, name, MAX_NAME_LEN);
-    strncpy(s->interface_name, interface, MAX_NAME_LEN);
+    s = get_sensor_config(name); // search the sensor list first
+    if(!s){
+        s = malloc(sizeof(sensor_config_t));
+        if(!s)
+            return NULL;
+        memset(s, 0, sizeof(sensor_config_t));
+        memcpy(s, &def_sensor_cfg, sizeof(sensor_config_t));
+        strncpy(s->name, name, MAX_NAME_LEN);
+        strncpy(s->interface_name, interface, MAX_NAME_LEN);
+    }
     return s;
 }
 
@@ -203,6 +209,10 @@ void anemo_create_json(sensor_config_t* config, cJSON* json)
     if(!cJSON_AddItemToObject(json, "setting", temp)) return;
     if(!cJSON_AddNumberToObject(temp, "height", ane->height)) return;
     if(!cJSON_AddNumberToObject(temp, "pitch", ane->pitch)) return;
+    if(!cJSON_AddNumberToObject(temp, "offset_n", ane->pulse_offset[NORTH])) return;
+    if(!cJSON_AddNumberToObject(temp, "offset_e", ane->pulse_offset[EAST])) return;
+    if(!cJSON_AddNumberToObject(temp, "offset_s", ane->pulse_offset[SOUTH])) return;
+    if(!cJSON_AddNumberToObject(temp, "offset_w", ane->pulse_offset[WEST])) return;
 }
 
 void anemo_load_json(sensor_config_t* config, cJSON* json)
@@ -221,6 +231,19 @@ void anemo_load_json(sensor_config_t* config, cJSON* json)
     temp = cJSON_GetObjectItem(json, "pitch");
     if(cJSON_IsNumber(temp))
         ane->pitch = temp->valuedouble;
+    temp = cJSON_GetObjectItem(json, "offset_n");
+    if(cJSON_IsNumber(temp))
+        ane->pulse_offset[NORTH] = temp->valuedouble;
+    temp = cJSON_GetObjectItem(json, "offset_e");
+    if(cJSON_IsNumber(temp))
+        ane->pulse_offset[EAST] = temp->valuedouble;
+    temp = cJSON_GetObjectItem(json, "offset_s");
+    if(cJSON_IsNumber(temp))
+        ane->pulse_offset[SOUTH] = temp->valuedouble;
+    temp = cJSON_GetObjectItem(json, "offset_w");
+    if(cJSON_IsNumber(temp))
+        ane->pulse_offset[WEST] = temp->valuedouble;
+
 }
 
 
@@ -267,13 +290,17 @@ void load_default_config(system_config_t* sys)
     // analog, channel is fixed on board. setting doesnt matter.
     s = new_sensor("Anemometer", "adc_ch5");
     s->update_rate = 1;
-    s->oversampling = 1;
+    s->oversampling = 2;
     if(s == NULL) return;
     anemometer_config_t* ane_cfg = malloc(sizeof(anemometer_config_t));
     if(ane_cfg == NULL) return;
     memset(ane_cfg, 0, sizeof(anemometer_config_t));
     ane_cfg->height = 0.048f;     // default, normally set to 5 cm
     ane_cfg->pitch = 0.04f;      // defualt pitch, based on the 3D file
+    ane_cfg->pulse_offset[0] = 0;
+    ane_cfg->pulse_offset[1] = 0;
+    ane_cfg->pulse_offset[2] = 0;
+    ane_cfg->pulse_offset[3] = 0;
     s->user_data = ane_cfg;
     s->create_json = anemo_create_json;
     s->load_json = anemo_load_json;
@@ -295,7 +322,7 @@ void load_default_config(system_config_t* sys)
     strcpy(sys->record.root_path, "/");
 
     // log
-    sys->log.is_enable = true;
+    sys->log.is_enable = false;
     sys->log.is_repeat_header = true;
     strcpy(sys->log.header,"temp,humidity,pressure,light,num_sat,latitude,longitude,windspeed");
     sys->log.period = 10000;
@@ -502,6 +529,24 @@ end:
     return ostring;
 }
 
+int save_system_cfg_to_file()
+{
+    /* to file system */
+    int fd = open("/config.json", O_CREAT| O_WRONLY | O_TRUNC);
+    if(fd < 0){
+       LOG_E("config file create failed");
+       return -1;
+    }
+    else{
+        char *out = create_json_from_config(&system_config);
+        //printf(out);
+        write(fd, out, strlen(out));
+        close(fd);
+        free(out);
+        return 0;
+    }
+}
+
 bool is_system_cfg_valid() {return system_config.is_valid;}
 
 int init_load_default_config()
@@ -534,10 +579,13 @@ int init_load_default_config()
     fd = open("/config.json", O_RDONLY);
     if (fd >= 0)
     {
-        char *json_str = rt_malloc(4096);
+        const int buffer_size = 4096;
+        char *json_str = malloc(buffer_size);
         int size;
-        memset(json_str, 0, 4096);
-        size = read(fd, json_str, 4096);
+        memset(json_str, 0, buffer_size);
+        size = read(fd, json_str, buffer_size);
+        if(size >= buffer_size * 0.8)
+            LOG_W("json config file size %d close to maximum buffer %d", size, buffer_size);
         json_str[size] = '\0';      // must end this str.
         //printf("%s",json_str);
         load_config_from_json(&system_config, json_str);
@@ -545,7 +593,7 @@ int init_load_default_config()
         free(json_str);
     }
     else {
-        LOG_W("default configuration is loaded, please change.");
+        LOG_W("default configuration is loaded, please check.");
     }
 
     // set it is valid
