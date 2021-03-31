@@ -33,11 +33,11 @@ static char ane_ch_names[][2] = {
 };
 
 // pin for analog swith selection.
-#define DRV_PIN0    GET_PIN(A, 5)
-#define DRV_PIN1    GET_PIN(B, 2)
-#define SW_PIN_EN   GET_PIN(B, 1)  // this also enable the OPA (analog power supply pmos)
-#define SW_PIN_A    GET_PIN(B, 0)
-#define SW_PIN_B    GET_PIN(A, 7)
+#define PIN_DRV_EN0    GET_PIN(A, 5)
+#define PIN_DRV_EN1    GET_PIN(B, 2)
+#define PIN_SWOPA_EN   GET_PIN(B, 1)  // this also enable the OPA (analog power supply pmos)
+#define PIN_SW_A    GET_PIN(B, 0)
+#define PIN_SW_B    GET_PIN(A, 7)
 
 void ane_pwr_control(uint32_t freq, bool flag);
 

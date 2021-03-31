@@ -94,7 +94,7 @@ void thread_record(void* parameters)
 int thread_record_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("rec", thread_record, RT_NULL, 2048, 20, 1000);
+    tid = rt_thread_create("rec", thread_record, RT_NULL, 2048+512, 20, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

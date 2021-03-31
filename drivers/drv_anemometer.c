@@ -26,15 +26,11 @@ static void MX_DMA_Init(void)
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
 
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 1, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   /* DMA1_Channel2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
   /* DMA1_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
 }
 
@@ -62,8 +58,8 @@ static void MX_ADC2_Init(void)
    hadc2.Init.ContinuousConvMode = ENABLE;
    hadc2.Init.NbrOfConversion = 1;
    hadc2.Init.DiscontinuousConvMode = DISABLE;
-   hadc2.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-   hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+   hadc2.Init.ExternalTrigConv = ADC_EXTERNALTRIG_T3_TRGO;//ADC_SOFTWARE_START;
+   hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
    hadc2.Init.DMAContinuousRequests = ENABLE;
    hadc2.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
    hadc2.Init.OversamplingMode = DISABLE;
@@ -102,12 +98,18 @@ void TIM3_Init(uint32_t frequency)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;//TIM_TRGO_ENABLE;//TIM_TRGO_OC1;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
+//  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+//  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+//  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+//  {
+//    Error_Handler();
+//  }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 100;
@@ -135,15 +137,11 @@ void ane_pwr_control(uint32_t freq, bool flag)
         MX_DMA_Init();
 
         // set up the analog switch
-        rt_pin_mode(SW_PIN_EN, PIN_MODE_OUTPUT);
-        rt_pin_mode(SW_PIN_A, PIN_MODE_OUTPUT);
-        rt_pin_mode(SW_PIN_B, PIN_MODE_OUTPUT);
-        rt_pin_mode(DRV_PIN0, PIN_MODE_OUTPUT);
-        rt_pin_mode(DRV_PIN1, PIN_MODE_OUTPUT);
-
-        // enable analog power. see if we need it to be here.
-        rt_pin_write(SW_PIN_EN, 1);
-        rt_pin_write(SW_PIN_EN, 0);
+        rt_pin_mode(PIN_SWOPA_EN, PIN_MODE_OUTPUT);
+        rt_pin_mode(PIN_SW_A, PIN_MODE_OUTPUT);
+        rt_pin_mode(PIN_SW_B, PIN_MODE_OUTPUT);
+        rt_pin_mode(PIN_DRV_EN0, PIN_MODE_OUTPUT);
+        rt_pin_mode(PIN_DRV_EN1, PIN_MODE_OUTPUT);
 
         // ADC setting.
         MX_ADC2_Init();
@@ -159,14 +157,14 @@ void ane_pwr_control(uint32_t freq, bool flag)
         HAL_TIM_Base_DeInit(&htim3);
 
         // disable drivers
-        rt_pin_write(DRV_PIN0, PIN_MODE_OUTPUT);
-        rt_pin_write(DRV_PIN1, PIN_MODE_OUTPUT);
+        rt_pin_write(PIN_DRV_EN0, PIN_MODE_OUTPUT);
+        rt_pin_write(PIN_DRV_EN1, PIN_MODE_OUTPUT);
     }
-    rt_pin_write(SW_PIN_EN, !flag);
-    rt_pin_write(SW_PIN_A, GPIO_PIN_RESET);
-    rt_pin_write(SW_PIN_B, GPIO_PIN_RESET);
-    rt_pin_write(DRV_PIN0, GPIO_PIN_RESET);
-    rt_pin_write(DRV_PIN1, GPIO_PIN_RESET);
+    rt_pin_write(PIN_SWOPA_EN, !flag);
+    rt_pin_write(PIN_SW_A, GPIO_PIN_RESET);
+    rt_pin_write(PIN_SW_B, GPIO_PIN_RESET);
+    rt_pin_write(PIN_DRV_EN0, GPIO_PIN_RESET);
+    rt_pin_write(PIN_DRV_EN1, GPIO_PIN_RESET);
 }
 
 // analog switch
@@ -176,28 +174,28 @@ void set_output_channel(ULTRASONIC_CHANNEL ch)
     // Again, when the receiver is also selected on the opposite of transmitter
     switch(ch){
     case SOUTH:
-        rt_pin_write(SW_PIN_A, GPIO_PIN_RESET); // analog switch
-        rt_pin_write(SW_PIN_B, GPIO_PIN_RESET);
-        rt_pin_write(DRV_PIN0, GPIO_PIN_SET);   // driver 0. enable the sender's driver,
-        rt_pin_write(DRV_PIN1, GPIO_PIN_RESET); // disable the receiver's driver
+        rt_pin_write(PIN_SW_A, GPIO_PIN_RESET); // analog switch
+        rt_pin_write(PIN_SW_B, GPIO_PIN_RESET);
+        rt_pin_write(PIN_DRV_EN0, GPIO_PIN_SET);   // driver 0. enable the sender's driver,
+        rt_pin_write(PIN_DRV_EN1, GPIO_PIN_RESET); // disable the receiver's driver
         break;
     case WEST:
-        rt_pin_write(SW_PIN_A, GPIO_PIN_SET);
-        rt_pin_write(SW_PIN_B, GPIO_PIN_RESET);
-        rt_pin_write(DRV_PIN0, GPIO_PIN_SET);   // driver 0
-        rt_pin_write(DRV_PIN1, GPIO_PIN_RESET);
+        rt_pin_write(PIN_SW_A, GPIO_PIN_SET);
+        rt_pin_write(PIN_SW_B, GPIO_PIN_RESET);
+        rt_pin_write(PIN_DRV_EN0, GPIO_PIN_SET);   // driver 0
+        rt_pin_write(PIN_DRV_EN1, GPIO_PIN_RESET);
         break;
     case NORTH:
-        rt_pin_write(SW_PIN_A, GPIO_PIN_RESET);
-        rt_pin_write(SW_PIN_B, GPIO_PIN_SET);
-        rt_pin_write(DRV_PIN0, GPIO_PIN_RESET);  // driver 1
-        rt_pin_write(DRV_PIN1, GPIO_PIN_SET);
+        rt_pin_write(PIN_SW_A, GPIO_PIN_RESET);
+        rt_pin_write(PIN_SW_B, GPIO_PIN_SET);
+        rt_pin_write(PIN_DRV_EN0, GPIO_PIN_RESET);  // driver 1
+        rt_pin_write(PIN_DRV_EN1, GPIO_PIN_SET);
         break;
     case EAST:
-        rt_pin_write(SW_PIN_A, GPIO_PIN_SET);
-        rt_pin_write(SW_PIN_B, GPIO_PIN_SET);
-        rt_pin_write(DRV_PIN0, GPIO_PIN_RESET);  // driver 1
-        rt_pin_write(DRV_PIN1, GPIO_PIN_SET);
+        rt_pin_write(PIN_SW_A, GPIO_PIN_SET);
+        rt_pin_write(PIN_SW_B, GPIO_PIN_SET);
+        rt_pin_write(PIN_DRV_EN0, GPIO_PIN_RESET);  // driver 1
+        rt_pin_write(PIN_DRV_EN1, GPIO_PIN_SET);
         break;
     default: break;
     }
@@ -218,7 +216,6 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     }
 }
 
-
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
     if(hadc->Instance == ADC2)
@@ -233,6 +230,8 @@ bool ane_check_busy()
 // start ADC sampling.
 static inline void start_sampling(uint16_t* buffer, uint32_t length)
 {
+    HAL_TIM_PWM_Stop_DMA(&htim3, TIM_CHANNEL_1);
+    HAL_TIM_Base_Stop(&htim3);
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*)buffer, length);
 }
 
@@ -242,16 +241,6 @@ static inline void setup_adc_sampling(uint16_t* buffer, uint32_t length)
 }
 
 
-// input: the RECEIVER side that willing to take the sample.
-int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len)
-{
-    set_output_channel(ch);
-    rt_thread_delay(15);
-    HAL_ADC_Start_DMA(&hadc2, (uint32_t*)adc_buf, adc_len);
-    while(ane_check_busy())
-        rt_thread_delay(1);
-    return 0;
-}
 
 // test functions
 // send a pulse from CH side, then sample the opposite side ADC data. NORTH -> SOUTH
@@ -262,17 +251,27 @@ int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len, u
     // >1ms is enough for the drivers to raise enough charge.
     rt_thread_delay(15); // this cannot be smaller than 10
 
-    // disable interrupt to ensure the time is same.
+    // disable interrupt to minimize jitter
     rt_enter_critical();
-    send_pulse(pulse, pulse_len);
     start_sampling(adc_buf, adc_len);
+    send_pulse(pulse, pulse_len);
     rt_exit_critical();
 
     // user need to wait for the ADC sampling.
-    while(ane_check_busy())
+    do{
         rt_thread_delay(1);
+    }while(ane_check_busy());
+
     return 0;
 }
+// input: the RECEIVER side that willing to take the sample.
+int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len)
+{
+    uint16_t pulse[1]={0};
+    ane_measure_ch(ch, pulse, 1, adc_buf, adc_len);
+    return 0;
+}
+
 
 void DMA1_Channel2_IRQHandler(void)
 {
@@ -308,8 +307,9 @@ void ADC1_2_IRQHandler(void)
   /* USER CODE BEGIN ADC1_2_IRQn 0 */
 
   /* USER CODE END ADC1_2_IRQn 0 */
-  HAL_ADC_IRQHandler(&hadc1);
-  HAL_ADC_IRQHandler(&hadc2);
+    HAL_ADC_IRQHandler(&hadc2);
+    HAL_ADC_IRQHandler(&hadc1);
+
   /* USER CODE BEGIN ADC1_2_IRQn 1 */
 
   /* USER CODE END ADC1_2_IRQn 1 */

@@ -114,25 +114,25 @@ float (*get_data[])() = {
 
 /* simple getters */
 int print_unknown(char*buf){return sprintf(buf, "unknown");}
-int print_gyro_x(char*buf) {return sprintf(buf, "%3.4f", gyro.unit.x);}
-int print_gyro_y(char*buf) {return sprintf(buf, "%3.4f", gyro.unit.y);}
-int print_gyro_z(char*buf) {return sprintf(buf, "%3.4f", gyro.unit.z);}
-int print_acc_x(char*buf) {return sprintf(buf, "%2.4f", acc.unit.x);}
-int print_acc_y(char*buf) {return sprintf(buf, "%2.4f", acc.unit.y);}
-int print_acc_z(char*buf) {return sprintf(buf, "%2.4f", acc.unit.z);}
+int print_gyro_x(char*buf) {return sprintf(buf, "%.4f", gyro.unit.x);}
+int print_gyro_y(char*buf) {return sprintf(buf, "%.4f", gyro.unit.y);}
+int print_gyro_z(char*buf) {return sprintf(buf, "%.4f", gyro.unit.z);}
+int print_acc_x(char*buf) {return sprintf(buf, "%.4f", acc.unit.x);}
+int print_acc_y(char*buf) {return sprintf(buf, "%.4f", acc.unit.y);}
+int print_acc_z(char*buf) {return sprintf(buf, "%.4f", acc.unit.z);}
 int print_mag_x(char*buf) {return sprintf(buf, "%f", mag.unit.x);}
 int print_mag_y(char*buf) {return sprintf(buf, "%f", mag.unit.y);}
 int print_mag_z(char*buf) {return sprintf(buf, "%f", mag.unit.z);}
-int print_eular_x(char*buf) {return sprintf(buf, "%3.2f", orientation.euler.x);}
-int print_eular_y(char*buf) {return sprintf(buf, "%3.2f", orientation.euler.y);}
-int print_eular_z(char*buf) {return sprintf(buf, "%3.2f", orientation.euler.z);}
-int print_quat_q0(char*buf) {return sprintf(buf, "%1.7f", orientation.q[0]);}
-int print_quat_q1(char*buf) {return sprintf(buf, "%1.7f", orientation.q[1]);}
-int print_quat_q2(char*buf) {return sprintf(buf, "%1.7f", orientation.q[2]);}
-int print_quat_q3(char*buf) {return sprintf(buf, "%1.7f", orientation.q[3]);}
-int print_air_pressure(char*buf){return sprintf(buf, "%6.2f", air_info.pressure);}
-int print_air_humidity(char*buf){return sprintf(buf, "%3.3f", air_info.humidity);}
-int print_air_temperature(char*buf){return sprintf(buf, "%3.3f", air_info.temperature);}
+int print_eular_x(char*buf) {return sprintf(buf, "%.2f", orientation.euler.x);}
+int print_eular_y(char*buf) {return sprintf(buf, "%.2f", orientation.euler.y);}
+int print_eular_z(char*buf) {return sprintf(buf, "%.2f", orientation.euler.z);}
+int print_quat_q0(char*buf) {return sprintf(buf, "%.7f", orientation.q[0]);}
+int print_quat_q1(char*buf) {return sprintf(buf, "%.7f", orientation.q[1]);}
+int print_quat_q2(char*buf) {return sprintf(buf, "%.7f", orientation.q[2]);}
+int print_quat_q3(char*buf) {return sprintf(buf, "%.7f", orientation.q[3]);}
+int print_air_pressure(char*buf){return sprintf(buf, "%.2f", air_info.pressure);}
+int print_air_humidity(char*buf){return sprintf(buf, "%.3f", air_info.humidity);}
+int print_air_temperature(char*buf){return sprintf(buf, "%.3f", air_info.temperature);}
 int print_light_info_r(char*buf){return sprintf(buf, "%d", light_info.R);}
 int print_light_info_g(char*buf){return sprintf(buf, "%d", light_info.G);}
 int print_light_info_b(char*buf){return sprintf(buf, "%d", light_info.B);}
