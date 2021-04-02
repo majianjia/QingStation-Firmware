@@ -21,7 +21,8 @@
 #include "data_pool.h"
 
 #define DBG_TAG "anemo"
-#define DBG_LVL LOG_LVL_DBG
+#define DBG_LVL LOG_LVL_ERROR
+//#define DBG_LVL LOG_LVL_DBG
 #include <rtdbg.h>
 
 #ifndef MAX
@@ -31,12 +32,6 @@
 #define MIN(a, b) (a<b?a:b)
 #endif
 
-// ADC = 1Msps, 500sample = 0.5ms ToF ~= 0.17m
-// speed of sound: ~340m/s
-// 500 sample  = 0.5ms ~= 0.17m
-// 1000 sample = 1ms   ~= 0.34m
-#define ADC_SAMPLE_LEN (1000)
-uint16_t adc_buffer[4][ADC_SAMPLE_LEN] = {0};
 
 // where the process started -> to avoid the direct sound propagation at the beginning. Depended on the mechanical structure.
 // Same unit of ADC sampling -> us.
@@ -52,14 +47,24 @@ uint16_t adc_buffer[4][ADC_SAMPLE_LEN] = {0};
 #define PEAK_LEN    (PEAK_LEFT + PEAK_RIGHT + 1)
 #define PEAK_ZC     (2)  // start from which peak to identify the zero crossing. (2=3rd)
 
-
-
 //#define IS_SIGN_DIFF(a, b) (a * b < 0)            // this doesnt not cover 0
 //#define IS_SIGN_DIFF(a, b) (!(((int)a^(int)b)>>(sizeof(int)-1))) // this cover 0, but have fixed width
 #define IS_SIGN_DIFF(a, b) (!(signbit(a) == signbit(b))) // this cover 0, but have fixed width
 
+// peak to peak mini distance in peak detection.
 #define MINI_PEAK_DISTANCE  (5)
 
+// ADC = 1Msps, 500sample = 0.5ms ToF ~= 0.17m
+// speed of sound: ~340m/s
+// 500 sample  = 0.5ms ~= 0.17m
+// 1000 sample = 1ms   ~= 0.34m
+#define ADC_SAMPLE_LEN (1000)
+uint16_t adc_buffer[4][ADC_SAMPLE_LEN] = {0};
+float sig[ADC_SAMPLE_LEN] = {0};
+
+#define CORR_LEN (300)
+float corr_sig[4][CORR_LEN] = {0};
+float corr_sigout[2*CORR_LEN+1] = {0};
 
 
 // return offset
@@ -534,6 +539,36 @@ void update_shape(float ref[PEAK_LEN][2], float curr[PEAK_LEN][2], float rate)
         ref[i][0] = ref[i][0] * (1-rate) + curr[i][0]*rate;
 }
 
+//void correlation(float* sig1, int len1, float* sig2, int len2, float* out)
+//{
+//    int len = len1 + len2;
+//    for(int i=0; i<len; i++)
+//    {
+//        int start1 = len1 - i;
+//        int end1 = i;
+//        if(start1 <0) start1 = 0;
+//        if(end1 > len1) end1 = len1;
+//        for(int j=start1)
+//
+//
+//    }
+//}
+
+void correlation(float* sig1, int len1, float* sig2, int len2, float* out)
+{
+    int len = len1 + len2;
+    for (int i = 0; i < len; i++)
+    {
+        int32_t start2 = MAX(0, len2-i);
+        int32_t end2 = MIN(len2, len2 - (i-len1));
+        int32_t start1 = MAX(0, i - len2);
+        float sum = 0;
+        for (int n = start2; n < end2; n++)
+            sum += sig1[start1++] * sig2[n];
+        out[i] = sum;
+    }
+}
+
 void thread_anemometer(void* parameters)
 {
     recorder_t *recorder = NULL;
@@ -568,25 +603,21 @@ void thread_anemometer(void* parameters)
     //uint16_t pulse[] = {50, 50, 50, 50};
 
     // Double rate (80k), to control the +1 or −1 phase
-    //uint16_t pulse[] = {H, L, H, L, H, L, H, L}; // normal -> +1 +1 +1 +1
-    //uint16_t pulse[] = {H, L, H, L, H, L, L, H, L, H}; // normal suppressed -> +1 +1 +1 −1 −1
-    uint16_t pulse[] = {H, L, H, L, H, L, L, H, L, H, L, H, L}; // extended suppressed -> +1 +1 +1 −1 −1 -1
-    //uint16_t pulse[] = {H, L, H, L, H, L, H, L, L, H, L, H}; // normal suppressed 2 -> +1 +1 +1 +1 −1 −1
-    //uint16_t pulse[] = {H, L, H, L, L, H, H, L}; // barker-code 4.1 -> +1 +1 −1 +1
-    //uint16_t pulse[] = {H, L, H, L, H, L, L, H}; // barker-code 4.2 -> +1 +1 +1 −1
-    //uint16_t pulse[] = {H, L, H, L, H, L, H, L, L, H, L, H, H, L, L, H}; // barker-code 7 -> +1 +1 +1 −1 −1 +1 −1
+    //uint16_t pulse[] = {H, L, H, L, H, L, H, L}; // normal -> ++++
+    //uint16_t pulse[] = {H, L, H, L, H, L, L, H, L, H}; // normal suppressed -> +++--
+    uint16_t pulse[] = {H, L, H, L, H, L, L, H, L, H, L, H, L}; // extended suppressed -> +++---
+    //uint16_t pulse[] = {H, L, H, L, H, L, H, L, L, H, L, H}; // normal suppressed 2 -> ++++--
+    //uint16_t pulse[] = {H, L, H, L, L, H, H, L}; // barker-code 4.1 -> ++-+
+    //uint16_t pulse[] = {H, L, H, L, H, L, H, L, L, H, L, H, H, L, H, L}; // long barker-code 4.1 -> ++++--++
+    //uint16_t pulse[] = {H, L, H, L, H, L, L, H, L}; // barker-code 4.2 -> +++-
+    //uint16_t pulse[] = {H, L, H, L, H, L, L, H, L, H,  H, L, L, H, L}; // barker-code 7 -> +++--+-
     uint32_t pulse_len = sizeof(pulse) / sizeof(uint16_t);
+
 
     // the theoretical arrive time of the first pulse in calm wind and room temperature
     // it decides where to start capture the pulses. No need to be accurate
     //int32_t START_OFFSET = sqrtf((pitch/2.f)*(pitch/2.f) + height*height) * 2.f / 340.f * 1000000;
     // allocate for floating-point signal
-    float* sig;
-    sig = malloc(sizeof(float) * ADC_SAMPLE_LEN);
-    if(!sig){
-        LOG_E("No memory for Anemometer data");
-        return;
-    }
 
     // zero_level for all direction. see if needed.
     float zero_level[4]= {0};
@@ -647,11 +678,12 @@ void thread_anemometer(void* parameters)
     }
     */
 
-    LOG_I("Propagation time:%4.1f, est offset: %4.1f,  %4.1f, %4.1f, %4.1f",
+    LOG_I("Propagation time:%4.1f, est offset: %4.1f, %4.1f, %4.1f, %4.1f",
             T, pulse_offset[0], pulse_offset[1],pulse_offset[2],pulse_offset[3]);
 
     // main body
     rt_tick_t period = 1000/(cfg->update_rate * cfg->oversampling);
+    uint64_t err_count = 0;
     int oversampling_count = 0;
     float ns_v=0, ew_v=0; // wind speed
     float ns_c=0, ew_c=0; // sound speed -> these measurements should be very close, other wise the measurment is wrong.
@@ -663,11 +695,13 @@ void thread_anemometer(void* parameters)
         if(!cfg->is_enable)
             continue;
         rt_thread_mdelay(20);
+
         // make a sample
         ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
         ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
         ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
         ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
+
 
         // to record the runtime
         rt_tick_t tick = rt_tick_get();
@@ -681,6 +715,9 @@ void thread_anemometer(void* parameters)
             small_lpf(&sig[DEADZONE_OFFSET], VALID_LEN);
             // normalize to -1 to 1
             normalize(&sig[DEADZONE_OFFSET], VALID_LEN);
+
+            // save for correlation (test)
+            memcpy(corr_sig[idx], &sig[DEADZONE_OFFSET], CORR_LEN*sizeof(float));
 
             // Beside to use the signal peak to calculate the rough propagation time,
             // We use a few more peak and valley around the main peaks.
@@ -717,8 +754,8 @@ void thread_anemometer(void* parameters)
 
             // finally we can locate the main peak, despite the peak is distorted
             if(peak_off){
-                LOG_D("peak offset %d, direction: %s", peak_off, ane_ch_names[idx]);
-                LOG_D("mse: %f, %f, %f, %f, %f", mse[0],mse[1],mse[2],mse[3],mse[4]);
+                LOG_W("peak offset %d, direction: %s", peak_off, ane_ch_names[idx]);
+                LOG_W("mse: %f, %f, %f, %f, %f", mse[0],mse[1],mse[2],mse[3],mse[4]);
 //                for(int j=0; j<1000; j++)
 //                    printf("%f\n", sig[j]);
             }
@@ -736,9 +773,26 @@ void thread_anemometer(void* parameters)
             dt[idx] = average(zero_cross, NUM_ZC_AVG);
             dt[idx] += pulse_offset[idx];
         }
+
+//        {   // test
+//            rt_tick_t t = rt_tick_get();
+//            correlation(corr_sig[0], CORR_LEN, corr_sig[2], CORR_LEN, corr_sigout);
+//            LOG_I("tick %dms", rt_tick_get() - t);
+//
+//            for(int i = 0; i<CORR_LEN; i++)
+//                printf("%f\n", corr_sig[0][i]);
+//            for(int i = 0; i<CORR_LEN; i++)
+//                printf("%f\n", corr_sig[2][i]);
+//            for(int i = 0; i<CORR_LEN*2; i++)
+//                printf("%f\n", corr_sigout[i]);
+//        }
+
         // any channel cannot match the beam shape, then redo the sampling immediately.
         if(!is_data_correct)
+        {
+            err_count++;
             continue;
+        }
 
         // convert us to s
         dt[NORTH] /= 1000000.f;
@@ -750,18 +804,30 @@ void thread_anemometer(void* parameters)
         ns_v = height / (sin_a * cos_a) * (1.0f/dt[NORTH] - 1.0f/dt[SOUTH]);
         ew_v = height / (sin_a * cos_a) * (1.0f/dt[EAST] - 1.0f/dt[WEST]);
         v = sqrtf(ns_v*ns_v + ew_v*ew_v);
-        ns_v_acc += ns_v;
-        ew_v_acc += ew_v;
+
         // sound speed
         ns_c = height / sin_a * (1.0f/dt[NORTH] + 1.0f/dt[SOUTH]);
         ew_c = height / sin_a * (1.0f/dt[EAST] + 1.0f/dt[WEST]);
         c = (ns_c + ew_c)/2;
-        c_acc += c;
+
         // course
         course = atan2f(-ew_v, -ns_v)/3.1415926*180 + 180;
 
+        // final check, if wind speed abnormal, then resample
+        est_c = speed_of_sound_from_T(air_info.temperature);
+        if(fabs(est_c - ns_c) > 5 || fabs(est_c - ew_c) > 5)
+        {
+            err_count++;
+            LOG_W("Wind speed abnormal, ns:%.1f, ew:%.1f, est_c:%.1f", ns_c, ew_c, est_c);
+            continue;
+        }
+
         // data output
+        c_acc += c;
+        ns_v_acc += ns_v;
+        ew_v_acc += ew_v;
         oversampling_count ++;
+
         if(oversampling_count >= cfg->oversampling){
             ns_v_acc /= oversampling_count;
             ew_v_acc /= oversampling_count;
@@ -775,6 +841,7 @@ void thread_anemometer(void* parameters)
                 anemometer.course = -1;
             data_updated(&anemometer.info);
 
+            // reset
             ns_v_acc = 0;
             ew_v_acc = 0;
             c_acc = 0;
@@ -782,10 +849,10 @@ void thread_anemometer(void* parameters)
             //printf("%4.1f, %4.1f, %7.3f,\n", anemometer.soundspeed, anemometer.course, anemometer.speed);
         }
 
-       //printf("Course=%5.1fdeg, V=%5.2fm/s, C=%5.1fm/s, ns=%5.2fm/s, ew=%5.2fm/s\n", course, v, c, ns_v, ew_v);
+        LOG_I("run time %d ms", rt_tick_get() - tick); //19~30ms
 
-       //LOG_I("run time %d ms", rt_tick_get() - tick); //19~30ms
-//
+        //printf("Course=%5.1fdeg, V=%5.2fm/s, C=%5.1fm/s, ns=%5.2fm/s, ew=%5.2fm/s\n", course, v, c, ns_v, ew_v);
+
         //printf("Course=%3.1fdeg, %3.1f, %2.3f,\n",course, c, v);
         //printf("%3.1f, %2.3f,\n", c, v);
 

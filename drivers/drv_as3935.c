@@ -93,7 +93,7 @@ int as3935_init(rt_device_t bus)
     for(int i=0; i<9; i++)
     {
         read_regs(i2c_bus, AS3935_I2C_ADDR, i, &temp, 1);
-        printf("REG: 0x%02X, 0x%02X\n", i, temp);
+        LOG_I("REG: 0x%02X, 0x%02X", i, temp);
     }
 
     // reset
