@@ -104,17 +104,11 @@ void TIM3_Init(uint32_t frequency)
   {
     Error_Handler();
   }
-//  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-//  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-//  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-//  {
-//    Error_Handler();
-//  }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 100;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH; // must not change
-  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE; //TIM_OCFAST_DISABLE;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE; //TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
@@ -197,7 +191,10 @@ void set_output_channel(ULTRASONIC_CHANNEL ch)
         rt_pin_write(PIN_DRV_EN0, GPIO_PIN_RESET);  // driver 1
         rt_pin_write(PIN_DRV_EN1, GPIO_PIN_SET);
         break;
-    default: break;
+    default:
+        rt_pin_write(PIN_DRV_EN0, GPIO_PIN_RESET);   // reset all driver.
+        rt_pin_write(PIN_DRV_EN1, GPIO_PIN_RESET);
+        break;
     }
 }
 
@@ -205,7 +202,7 @@ void set_output_channel(ULTRASONIC_CHANNEL ch)
 static inline void send_pulse(uint16_t* pulses, uint16_t length)
 {
     // the length here is in bytes.
-    HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1, (uint32_t*)pulses, length * sizeof(uint16_t));
+    HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1, (uint32_t*)pulses, length);// * sizeof(uint16_t));
 }
 
 void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
@@ -218,8 +215,11 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
+    extern ADC_HandleTypeDef hadc1;
     if(hadc->Instance == ADC2)
         HAL_ADC_Stop_DMA(&hadc2);
+    if(hadc->Instance == ADC1)
+        HAL_ADC_Stop_DMA(&hadc1); // for Rain and System voltage
 }
 
 bool ane_check_busy()
@@ -231,7 +231,6 @@ bool ane_check_busy()
 static inline void start_sampling(uint16_t* buffer, uint32_t length)
 {
     HAL_TIM_PWM_Stop_DMA(&htim3, TIM_CHANNEL_1);
-    HAL_TIM_Base_Stop(&htim3);
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*)buffer, length);
 }
 
@@ -240,16 +239,29 @@ static inline void setup_adc_sampling(uint16_t* buffer, uint32_t length)
 {
 }
 
-
-
 // test functions
 // send a pulse from CH side, then sample the opposite side ADC data. NORTH -> SOUTH
-int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len, uint16_t* adc_buf, uint32_t adc_len)
+float ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len,
+        uint16_t* adc_buf, uint32_t adc_len, bool is_calibrate)
 {
+    uint16_t no_pulse[1]={0};
+    float sig_level = 0;
     set_output_channel(ch);
     // see if delay needed. and see if need to perform zero_level sampling here.
     // >1ms is enough for the drivers to raise enough charge.
     rt_thread_delay(4); // this cannot be smaller than 10
+
+    // calibrate
+    if(is_calibrate)
+    {
+        start_sampling(adc_buf, adc_len);
+        send_pulse(no_pulse, 1);
+        // user need to wait for the ADC sampling.
+        do{rt_thread_delay(2);} while(ane_check_busy());
+        for(int i=0; i<adc_len; i++)
+            sig_level += adc_buf[i];
+        sig_level /= adc_len;
+    }
 
     // disable interrupt to minimize jitter
     rt_enter_critical();
@@ -258,17 +270,17 @@ int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len, u
     rt_exit_critical();
 
     // user need to wait for the ADC sampling.
-    do{
-        rt_thread_delay(1);
-    }while(ane_check_busy());
+    do{rt_thread_delay(1);}while(ane_check_busy());
 
-    return 0;
+    // reset all driver.
+    set_output_channel(CH_NONE);
+    return sig_level;
 }
 // input: the RECEIVER side that willing to take the sample.
 int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len)
 {
     uint16_t pulse[1]={0};
-    ane_measure_ch(ch, pulse, 1, adc_buf, adc_len);
+    ane_measure_ch(ch, pulse, 1, adc_buf, adc_len, false);
     return 0;
 }
 

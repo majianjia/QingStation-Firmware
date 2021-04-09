@@ -29,8 +29,8 @@ extern "C"
 
 /*-------------------------- ROM/RAM CONFIG BEGIN --------------------------*/
 
-#define ROM_START              ((uint32_t)0x08000000)
-#define ROM_SIZE               (1024 * 1024)
+#define ROM_START              ((uint32_t)0x08010000)
+#define ROM_SIZE               (1024 * 960)
 #define ROM_END                ((uint32_t)(ROM_START + ROM_SIZE))
 
 #define RAM_START              (0x20000000)
@@ -71,8 +71,8 @@ extern "C"
 #define BSP_UART1_RX_PIN       "PB10"
 
 #define BSP_USING_UART2
-#define BSP_UART2_TX_PIN       "PA1"
-#define BSP_UART2_RX_PIN       "PA2"
+#define BSP_UART2_TX_PIN       "PA2"
+#define BSP_UART2_RX_PIN       "PA3"
 
 #define BSP_USING_UART3
 #define BSP_UART3_TX_PIN       "PC4"
@@ -192,7 +192,7 @@ extern "C"
  *
  */
 
-/*#define BSP_USING_ADC1*/
+//#define BSP_USING_ADC1
 /*#define BSP_USING_ADC2*/
 /*#define BSP_USING_ADC3*/
 

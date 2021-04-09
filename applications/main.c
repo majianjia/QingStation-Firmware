@@ -101,9 +101,12 @@ int main(void)
     while (1)
     {
         //LOG_D("Hello RT-Thread!");
-        rt_pin_write(LED0_PIN, count % 2);
+        rt_pin_write(LED0_PIN, PIN_HIGH);
         //rt_pin_write(LED1_PIN, count % 2);
-        rt_thread_delay(500);
+        rt_thread_delay(10);
+        rt_pin_write(LED0_PIN, PIN_LOW);
+        //rt_pin_write(LED1_PIN, count % 2);
+        rt_thread_delay(990);
         count++;
     }
 

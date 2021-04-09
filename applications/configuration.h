@@ -28,8 +28,8 @@ typedef struct sensor_config
     char name[MAX_NAME_LEN];        // part number
     char interface_name[MAX_NAME_LEN];   // interface device name
     uint8_t addr;                   // i2c address
-    uint16_t update_rate;           // Hz
-    uint16_t oversampling;          // num of over sampling
+    uint32_t data_period;           // in ms
+    uint32_t oversampling;          // num of over sampling
     void *user_data;
     void (*create_json)(struct sensor_config*, cJSON*);
     void (*load_json)(struct sensor_config*, cJSON*);
@@ -96,6 +96,7 @@ typedef struct _anemometer_config_t
     float height;   // height of reflective plate to transducer.
     float pitch;    // pitch size between transducer.
     float pulse_offset[4]; // time offset for each channel.
+    bool is_dump_error; // save error
 } anemometer_config_t;
 
 extern system_config_t system_config;

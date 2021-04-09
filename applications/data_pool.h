@@ -99,6 +99,7 @@ extern light_info_t light_info;
 typedef struct _rain_t {
     sensor_info_t info;
     int rain_level;
+    float rain_var;
 }rain_t;
 extern rain_t rain;
 
@@ -121,6 +122,13 @@ typedef struct _gnss_t
     bool is_fixed;         // location is fixed
 }gnss_t;
 extern gnss_t gnss;
+
+typedef struct _sys_t
+{
+    sensor_info_t info;
+    float bat_voltage;
+}sys_t;
+extern sys_t sys;
 
 
 void data_updated(sensor_info_t *info);

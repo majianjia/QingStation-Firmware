@@ -29,6 +29,21 @@ extern "C" {
 #define AS3935_DATA_REG         0x07
 #define AS3935_TUNEANT_REG      0x03
 
+
+#define AS3935_LCO      0x80
+#define AS3935_SRCO     0x40
+#define AS3935_TRCO     0x20
+
+#define AS3935_INT_NOISE 0x01
+#define AS3935_INT_D     0x04       // Disturber detected
+#define AS3935_INT_L     0x08       // lightning
+#define AS3935_INT_NONE     0x00
+
+int as3935_enable_clock_output(uint8_t which);
+int as3935_interrupt_set(uint8_t mask);
+int as3935_noise_level_set(uint8_t value); // 0-7
+uint8_t as3935_read_int();
+
 int as3935_read_data(uint32_t* distance, uint32_t* energy);
 
 int as3935_init(rt_device_t bus);

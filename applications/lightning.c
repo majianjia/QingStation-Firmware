@@ -17,8 +17,29 @@
 #include "configuration.h"
 
 #define DBG_TAG "lightning"
-#define DBG_LVL DBG_LOG
+#define DBG_LVL DBG_INFO
 #include <rtdbg.h>
+
+#define INT_PIN GET_PIN(B, 12)
+
+static int32_t cali_count = 0;
+void irq_callback(void *args)
+{
+    cali_count++;
+}
+
+void io_irq_enable(void)
+{
+    rt_pin_mode(INT_PIN, PIN_MODE_INPUT);
+    rt_pin_attach_irq(INT_PIN, PIN_IRQ_MODE_RISING, irq_callback, RT_NULL);
+    rt_pin_irq_enable(INT_PIN, PIN_IRQ_ENABLE);
+}
+
+void io_irq_disable(void)
+{
+    rt_pin_irq_enable(INT_PIN, PIN_IRQ_DISABLE);
+    rt_pin_detach_irq(INT_PIN);
+}
 
 
 void thread_lightning(void* parameters)
@@ -27,6 +48,9 @@ void thread_lightning(void* parameters)
     sensor_config_t * cfg;
     rt_tick_t period = 0;
     uint32_t distance, energy;
+    uint8_t calib_cap = 0;
+    float calib_f = 0;
+    uint8_t noise_level = 2;
 
     // wait and load the configuration
     do{
@@ -40,11 +64,30 @@ void thread_lightning(void* parameters)
         LOG_E("cannot find %s bus for AS3935.", cfg->interface_name);
         return;
     }
-    // update rate in tick
-    period = 1000/cfg->update_rate;
+
+    rt_thread_delay(5000);
 
     as3935_init(i2c_bus);
+    io_irq_enable();
 
+    LOG_I("Antenna calibrating");
+    for(int i=0;i<16; i++)
+    {
+        calib_cap = i;
+        as3935_enable_clock_output(AS3935_LCO | calib_cap);
+        cali_count = 0;
+        rt_tick_t t = rt_tick_get();
+        rt_thread_mdelay(500);
+        t = rt_tick_get() - t;
+        calib_f = ((float)cali_count/t)*128;
+        if(calib_f < 502)
+            break;
+        LOG_D("ant: count:%d, sample times:%d, freq = %f", cali_count, t, calib_f);
+    }
+    as3935_enable_clock_output(calib_cap); // disable clock output.
+    LOG_I("Calibration is done: freq: %.1fkHz, calib_cap:%d x 8pF", calib_f, calib_cap);
+
+    period = cfg->data_period / cfg->oversampling;
     while(1)
     {
         // add some delay in case the speed too fast, that case multiple run in 1ms
@@ -53,7 +96,21 @@ void thread_lightning(void* parameters)
 
         as3935_read_data(&distance, &energy);
 
-        //printf("%d, %d\n", distance, energy);
+        if(rt_pin_read(INT_PIN))
+        {
+            uint8_t event = as3935_read_int();
+            LOG_D("interrupted, %d", event);
+            if(event & AS3935_INT_NOISE)
+            {
+                as3935_noise_level_set(noise_level);
+                LOG_D("Set noise level to %d", noise_level);
+                noise_level++;
+                if(noise_level >7)
+                    noise_level = 7;
+            }
+        }
+
+        LOG_D("distance: %d, energy:%d", distance, energy);
 
         lightning.distance = distance;
         data_updated(&lightning.info);
@@ -65,7 +122,7 @@ int thread_lightning_init()
 {
     rt_thread_t tid;
 
-    tid = rt_thread_create("lightni", thread_lightning, RT_NULL, 1024, 25, 1000);
+    tid = rt_thread_create("lightni", thread_lightning, RT_NULL, 2048, 25, 1000);
     if(!tid)
         return RT_ERROR;
 
@@ -73,3 +130,5 @@ int thread_lightning_init()
     return RT_EOK;
 }
 INIT_APP_EXPORT(thread_lightning_init);
+
+

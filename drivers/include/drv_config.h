@@ -76,6 +76,7 @@ extern "C" {
 #include "config/pwm_config.h"
 #include "config/usbd_config.h"
 #elif  defined(SOC_SERIES_STM32L4)
+#include "config/adc_config.h"
 #include "config/dma_config.h"
 #include "config/uart_config.h"
 #include "config/spi_config.h"

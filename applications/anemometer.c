@@ -21,8 +21,8 @@
 #include "data_pool.h"
 
 #define DBG_TAG "anemo"
-#define DBG_LVL LOG_LVL_ERROR
-//#define DBG_LVL LOG_LVL_DBG
+//#define DBG_LVL LOG_LVL_ERROR
+#define DBG_LVL LOG_LVL_DBG
 #include <rtdbg.h>
 
 #ifndef MAX
@@ -41,14 +41,12 @@
 #define NUM_ZC_AVG      (6) // number of zerocrossing to calculate the beam location. better to be even number
 
 // to define the shape of to identify the echo beam
-#define PEAK_LEFT   (4)
+#define PEAK_LEFT   (6)
 #define PEAK_MAIN   PEAK_LEFT
-#define PEAK_RIGHT  (4)
+#define PEAK_RIGHT  (6)
 #define PEAK_LEN    (PEAK_LEFT + PEAK_RIGHT + 1)
-#define PEAK_ZC     (2)  // start from which peak to identify the zero crossing. (2=3rd)
+#define PEAK_ZC     (3)  // start from which peak to identify the zero crossing. (2=3rd)
 
-//#define IS_SIGN_DIFF(a, b) (a * b < 0)            // this doesnt not cover 0
-//#define IS_SIGN_DIFF(a, b) (!(((int)a^(int)b)>>(sizeof(int)-1))) // this cover 0, but have fixed width
 #define IS_SIGN_DIFF(a, b) (!(signbit(a) == signbit(b))) // this cover 0, but have fixed width
 
 // peak to peak mini distance in peak detection.
@@ -61,10 +59,25 @@
 #define ADC_SAMPLE_LEN (1000)
 uint16_t adc_buffer[4][ADC_SAMPLE_LEN] = {0};
 float sig[ADC_SAMPLE_LEN] = {0};
+float sig2[ADC_SAMPLE_LEN] = {0}; // buffer for filter
+float sig_level[4] = {0};   // signal level for each channels
 
+// test
 #define CORR_LEN (300)
 float corr_sig[4][CORR_LEN] = {0};
 float corr_sigout[2*CORR_LEN+1] = {0};
+
+// filters
+#define COEFF_40K_2K_BP_1ORDER {{0.0124111,1.0},{0.0,-1.9132751},{-0.0124111,0.9751779}}
+#define COEFF_40K_2K_BP_2ORDER {{0.0001551,1.0},{0.0,-3.840213},{-0.0003103,5.6515555},{0.0,-3.7725641},{0.0001551,0.9650812}}
+#define COEFF_40K_2K_BP_3ORDER {{1.9e-06,1.0},{0.0,-5.763269},{-5.8e-06,14.02188},{0.0,-18.4249013},{5.8e-06,13.7888872},{0.0,-5.5733324},{-1.9e-06,0.9509757}}
+
+#define COEFF_40K_10K_BP_1ORDER {{0.0304687,1.0},{0.0,-1.8790705},{-0.0304687,0.9390625}}
+#define COEFF_40K_10K_BP_2ORDER {{0.0009447,1.0},{0.0,-3.7901898},{-0.0018894,5.504279},{0.0,-3.6254026},{0.0009447,0.9149758}}
+#define COEFF_40K_10K_BP_3ORDER {{2.91e-05,1.0},{0.0,-5.6926121},{-8.74e-05,13.6786558},{0.0,-17.7500413},{8.74e-05,13.1173539},{0.0,-5.2350269},{-2.91e-05,0.8818931}}
+
+const float bp_coeff[][2] = COEFF_40K_10K_BP_1ORDER;
+const int   bp_coeff_order = sizeof(bp_coeff)/2/sizeof(float)/2;
 
 
 // return offset
@@ -317,12 +330,28 @@ int match_shape(float peaks1[][2], float peaks2[][2], int len, float mse[], int 
 }
 
 // int16 -> float, also move data to zero_level. see if we need to scale it?
-void preprocess(uint16_t *raw, float* out, float zero_level, uint32_t len)
+int preprocess(uint16_t *raw, float* out, float zero_level, uint32_t len)
 {
     for(uint32_t i=0; i<len; i++){
         out[i] = ((float)raw[i] - zero_level);
     }
+    return len;
 }
+// this version use the current signal's zero_level. no calibration needed.
+float preprocess2(uint16_t *raw, float* out, uint32_t len)
+{
+    float zero_level = 0;
+    for(uint32_t i=0; i<len; i++){
+        zero_level += raw[i];
+    }
+    zero_level /= len;
+
+    for(uint32_t i=0; i<len; i++){
+        out[i] = ((float)raw[i] - zero_level);
+    }
+    return zero_level;
+}
+
 
 /*
 // add a small LPF to avoid equal number, which cause turning point detection fail
@@ -345,6 +374,19 @@ void small_lpf(float* sig, uint32_t len)
 			sum+= sig[i+j];
 		sig[i] = sum;
 		sum = 0;
+    }
+}
+
+// a generic fileters using pre-calculated b-a coefficient.
+// y[i] = b[0] * x[i] + b[1] * x[i - 1] + b[2] * x[i - 2] - a[1] * y[i - 1] - a[2] * y[i - 2]...
+void filter(float* x, float* y, uint32_t signal_len, const float ba[][2], const uint32_t orders)
+{
+    memset(y, 0, sizeof(float)*(orders*2+1)); // we dont use the first few data.
+    for(int i=(orders*2+1); i<signal_len; i++)
+    {
+       y[i] = 0;
+       for(int c=0; c < (orders*2+1); c++)
+           y[i] += ba[c][0] + x[i-c] - ba[c][1] * y[i-c];
     }
 }
 
@@ -374,7 +416,8 @@ void test_print_raw()
 // Speed of sound c ≈ 331.3 + 0.6 ϑ  (m/s)
 // Temperature ϑ ≈ (331.3 − c) / 0.6
 float speed_of_sound_from_T(float temperature){
-    return 331.3+0.6*temperature;
+    return 20.05f*sqrtf(temperature + 273.15); // more accurate.
+    //return 331.3+0.6*temperature;
 }
 
 float average(float sig[], int num)
@@ -392,7 +435,7 @@ void send_to_processing(int cycle, int start_idx, int stop_idx, uint16_t* pulse,
     for (int i = 0; i<cycle; i++)
     {
         for(int idx = 0; idx < 4; idx ++){
-            ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
+            ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN, false);
         }
         for(int j=start_idx; j<stop_idx; j++){
             printf("%d,%d,%d,%d\n", adc_buffer[0][j],adc_buffer[1][j],adc_buffer[2][j],adc_buffer[3][j]);
@@ -425,7 +468,7 @@ int record_raw(const char* path, int times, bool is_sample, uint16_t* pulse, uin
     {
         if(is_sample)
             for(int idx = 0; idx < 4; idx ++)
-                ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
+                ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN, false);
 
         for(int j=0; j<ADC_SAMPLE_LEN; j++){
             sprintf(str, "%d,%d,%d,%d\n", adc_buffer[0][j], adc_buffer[2][j],adc_buffer[1][j],adc_buffer[3][j]);
@@ -434,6 +477,7 @@ int record_raw(const char* path, int times, bool is_sample, uint16_t* pulse, uin
         }
     }
     recorder_delete(recorder);
+    return 0;
 }
 
 // print raw to terminal
@@ -443,9 +487,27 @@ void print_raw(int times, bool is_sample, uint16_t* pulse, uint16_t pulse_len)
     {
         if(is_sample)
             for(int idx = 0; idx < 4; idx ++)
-                ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN);
+                ane_measure_ch(idx,  pulse, pulse_len, adc_buffer[idx], ADC_SAMPLE_LEN, false);
         test_print_raw();
     }
+}
+
+// return the channel that connected.
+// each bit represent the channel.
+// 0 = no connection.
+uint32_t check_transducer_connection(uint16_t* pulse, uint32_t pulse_len)
+{
+   uint32_t ch = 0;
+   int max = 0;
+   for(int i=0; i<4; i++)
+   {
+       float zero = ane_measure_ch(i,  pulse, pulse_len, adc_buffer[i], ADC_SAMPLE_LEN, true);
+       for(int j=DEADZONE_OFFSET; j<ADC_SAMPLE_LEN; j++)
+           max = MAX(max, adc_buffer[i][j]);
+       if(max > zero + 100)
+           ch = ch | (0x01 << i);
+   }
+   return ch;
 }
 
 // output:
@@ -454,18 +516,16 @@ void print_raw(int times, bool is_sample, uint16_t* pulse, uint16_t pulse_len)
 int calibration(float* static_zero_cross, float* echo_shape, float* zero_level, float* sig,
         uint16_t *pulse, uint16_t pulse_len)
 {
-//    float static_zero_cross[4][ZEROCROSS_LEN] = {0};
-//    float echo_shape[4][PEAK_LEN][2] = {0};       // store the shape of the echo
     memset(static_zero_cross, 0, sizeof(float) * ZEROCROSS_LEN * 4);
     memset(echo_shape, 0, sizeof(float) * PEAK_LEN* 2 *4);
 
     int count = 0;
-    for (int i = 0; i<32 && count<16; i++)
+    for (int i = 0; i<100 && count<16; i++)
     {
-        ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
-        ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
-        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
-        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
+        ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN, false);
+        ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN, false);
+        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN, false);
+        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN, false);
 
         // we start the crossing point from the PEAK_ZC
         float peaks_zero[4][PEAK_LEN][2] = {0};
@@ -473,9 +533,11 @@ int calibration(float* static_zero_cross, float* echo_shape, float* zero_level, 
         for(int idx = 0; idx < 4; idx++)
         {
             // convert to float
-            preprocess(adc_buffer[idx], sig, zero_level[idx], ADC_SAMPLE_LEN);
-            small_lpf(&sig[DEADZONE_OFFSET], VALID_LEN);
-            // normalize signal but not include the excitation.
+            preprocess(adc_buffer[idx], sig2, zero_level[idx], ADC_SAMPLE_LEN);
+            //preprocess2(adc_buffer[idx], sig2, ADC_SAMPLE_LEN);
+            // band pass filter.
+            filter(sig2, sig, ADC_SAMPLE_LEN, bp_coeff, bp_coeff_order);
+            // normalize to -1 to 1
             normalize(&sig[DEADZONE_OFFSET], VALID_LEN);
 
             // search original peaks, use to rough estimate the data.
@@ -489,8 +551,8 @@ int calibration(float* static_zero_cross, float* echo_shape, float* zero_level, 
         }
 
         // record if the numbers looks correct
-        if(fabs(zero_cross[NORTH][0] - zero_cross[SOUTH][0]) < 1 && // same channel
-           fabs(zero_cross[WEST][0] - zero_cross[EAST][0]) < 1 &&
+        if(fabs(zero_cross[NORTH][0] - zero_cross[SOUTH][0]) < 2 && // same channel
+           fabs(zero_cross[WEST][0] - zero_cross[EAST][0]) < 2 &&
            fabs(zero_cross[NORTH][0] - zero_cross[EAST][0]) < 10 &&  // cross channel
            fabs(zero_cross[SOUTH][0] - zero_cross[WEST][0]) < 10)
         {
@@ -511,6 +573,9 @@ int calibration(float* static_zero_cross, float* echo_shape, float* zero_level, 
             }
         }
     }
+    if(count == 0)
+        return 0;
+
     for(int idx = 0; idx < 4; idx ++)
         for(int j=0; j<ZEROCROSS_LEN; j++)
             *(static_zero_cross + idx*ZEROCROSS_LEN + j) /= count;
@@ -569,10 +634,72 @@ void correlation(float* sig1, int len1, float* sig2, int len2, float* out)
     }
 }
 
-void thread_anemometer(void* parameters)
+int dump_error_measurement(int error_count)
 {
     recorder_t *recorder = NULL;
+    time_t timep;
+    char str[64] = {0}; // buffer is small, taker care.
+    char filepath[64];
+
+    if(!access("/wind_err", 0)){
+        mkdir("/wind_err", 777);
+    }
+    if(!access("/wind_err", 0))
+        return -1;
+
+    time(&timep);
+    strftime(str, 64, "%Y%m%d_%H%M%S", gmtime(&timep));
+    snprintf(filepath, 64, "/wind_err/%s_%d_%s", str, error_count,"err.csv");
+    recorder = recorder_create(filepath, "North,South,East,West", 64, 20000);
+    // dump
+    for(int j=0; j<ADC_SAMPLE_LEN; j++){
+        sprintf(str, "%d,%d,%d,%d\n", adc_buffer[0][j], adc_buffer[2][j],adc_buffer[1][j],adc_buffer[3][j]);
+        while(recorder_write(recorder, str) != RT_EOK)
+            rt_thread_delay(1);
+    }
+    recorder_delete(recorder);
+    rt_thread_delay(20);
+    return 0;
+}
+
+bool is_ane_log = false;
+void anemometer_info(int argc, void*argv){
+    is_ane_log = !is_ane_log;
+}
+MSH_CMD_EXPORT(anemometer_info, print anemometer debugging information)
+
+bool is_ane_proc = false;
+void anemometer_processing(int argc, void*argv){
+    is_ane_proc = !is_ane_proc;
+}
+MSH_CMD_EXPORT(anemometer_processing, send raw ADC to processing script.)
+
+void thread_anemometer(void* parameters)
+{
+    //recorder_t *recorder = NULL;
     char str_buf[128] = {0};
+
+    // pulse generation/modulation, pulse are pwm with 0~99 = 0%~100%
+    #define H 99
+    #define L 0
+    // single rate (40k)
+    //uint16_t pulse[] = {50, 50, 50, 50};
+
+    // Double rate (80k), to control the +1 or −1 phase
+    // this is a bit tricky -- this is the only way to make it work.
+    // STM32's timer seems to require the first cycle not to be 100% width.
+    // So there is a dummy 'L' in each pulse, as well as a dummy 'L' in each end if the end is not L.
+    // A +1 is 'H, L', A -1 is 'L, H'
+    //uint16_t pulse[] = {L, H, L, H, L, H, L, H, L};                   // normal -> ++++
+    //uint16_t pulse[] = {L, H, L, H, L, H, L, L, H, L, H, L};          // +++--
+    //uint16_t pulse[] = {L, H, L, H, L, H, L, L, H, L, H, L, H, L};    // +++---
+    uint16_t pulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, L}; // +++++---
+    //uint16_t pulse[] = {L, H, L, H, L, L, H, H, L};                   // barker-code 4.1 -> ++-+
+    //uint16_t pulse[] = {L, H, L, H, L, H, L, H, L, L, H, L, H, H, L, H, L}; // long barker-code 4.1 -> ++++--++
+    //uint16_t pulse[] = {L, H, L, H, L, H, L, L, H, L};                // barker-code 4.2 -> +++-
+    //uint16_t pulse[] = {L, H, L, H, L, H, L, L, H, L, H,  H, L, L, H, L}; // barker-code 7 -> +++--+-
+    uint32_t pulse_len = sizeof(pulse) / sizeof(uint16_t);
+
     sensor_config_t * cfg;
     anemometer_config_t * ane_cfg;
 
@@ -596,24 +723,6 @@ void thread_anemometer(void* parameters)
     float cos_a = cosf(alpha);
     float sin_a = sinf(alpha);
 
-    // pulse generation/modulation, pulse are pwm with 0~99 = 0%~100%
-    #define H 99
-    #define L 0
-    // single rate (40k)
-    //uint16_t pulse[] = {50, 50, 50, 50};
-
-    // Double rate (80k), to control the +1 or −1 phase
-    //uint16_t pulse[] = {H, L, H, L, H, L, H, L}; // normal -> ++++
-    //uint16_t pulse[] = {H, L, H, L, H, L, L, H, L, H}; // normal suppressed -> +++--
-    uint16_t pulse[] = {H, L, H, L, H, L, L, H, L, H, L, H, L}; // extended suppressed -> +++---
-    //uint16_t pulse[] = {H, L, H, L, H, L, H, L, L, H, L, H}; // normal suppressed 2 -> ++++--
-    //uint16_t pulse[] = {H, L, H, L, L, H, H, L}; // barker-code 4.1 -> ++-+
-    //uint16_t pulse[] = {H, L, H, L, H, L, H, L, L, H, L, H, H, L, H, L}; // long barker-code 4.1 -> ++++--++
-    //uint16_t pulse[] = {H, L, H, L, H, L, L, H, L}; // barker-code 4.2 -> +++-
-    //uint16_t pulse[] = {H, L, H, L, H, L, L, H, L, H,  H, L, L, H, L}; // barker-code 7 -> +++--+-
-    uint32_t pulse_len = sizeof(pulse) / sizeof(uint16_t);
-
-
     // the theoretical arrive time of the first pulse in calm wind and room temperature
     // it decides where to start capture the pulses. No need to be accurate
     //int32_t START_OFFSET = sqrtf((pitch/2.f)*(pitch/2.f) + height*height) * 2.f / 340.f * 1000000;
@@ -625,14 +734,24 @@ void thread_anemometer(void* parameters)
     // hardware power_on
     ane_pwr_control(80*1000, true);
 
-    // cap charge
-    for(uint32_t i=0; i<50; i++){
-        ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
-        ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
-        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
-        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
+    // check connection
+    if (!check_transducer_connection(pulse, pulse_len))
+    {
+        LOG_W("No transducer connected.");
+        while(check_transducer_connection(pulse, pulse_len) != 0xf) // wait for all channel
+            rt_thread_delay(1000);
+        LOG_I("transducer connected.");
     }
 
+    // cap charge
+    for(uint32_t i=0; i<50; i++){
+        ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN, false);
+        ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN, false);
+        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN, false);
+        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN, false);
+    }
+
+    // to be deleted
     // measure zero_level - calibration.
     zero_offset_update(20, zero_level, DEADZONE_OFFSET);
     printf("zeros: %.2f, %.2f, %.2f, %.2f\n", zero_level[0], zero_level[1], zero_level[2], zero_level[3]);
@@ -651,10 +770,11 @@ void thread_anemometer(void* parameters)
     }
 
     // Test zone
-    //record_raw("/raw.csv", 100, true);
-    //print_raw(1, true);
+    //record_raw("/raw.csv", 100, true, pulse, pulse_len);
+    //print_raw(1, true, pulse, pulse_len);
+    //send_to_processing(540, 0, ADC_SAMPLE_LEN-100, pulse, pulse_len);
 
-    // calculate the offset between the first zerocrossing to the start of the wave
+    // calculate the offset between the zerocrossings to the start of the wave
     float est_c = speed_of_sound_from_T(air_info.temperature);
     LOG_I("temp: %2.1f degC, est_wind_speed: %3.1fm/s", air_info.temperature, est_c);
     // the offset between the first valid crossing to the wave that actually start.
@@ -682,7 +802,7 @@ void thread_anemometer(void* parameters)
             T, pulse_offset[0], pulse_offset[1],pulse_offset[2],pulse_offset[3]);
 
     // main body
-    rt_tick_t period = 1000/(cfg->update_rate * cfg->oversampling);
+    rt_tick_t period = cfg->data_period / cfg->oversampling;
     uint64_t err_count = 0;
     int oversampling_count = 0;
     float ns_v=0, ew_v=0; // wind speed
@@ -690,18 +810,24 @@ void thread_anemometer(void* parameters)
     float v=0, c=0, c_acc=0;
     float ns_v_acc=0, ew_v_acc=0; // accumulation for oversampling
     float course=0;
+    float mse_history[4] = {0}; // matching abnormal checking
+    float c_history = 0; // sound speed for abnormal checking
+    rt_tick_t last_dump = rt_tick_get(); // to limit the dumpping per second
     while(1)
     {
+        rt_thread_mdelay(20);
         if(!cfg->is_enable)
             continue;
-        rt_thread_mdelay(20);
 
         // make a sample
-        ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN);
-        ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN);
-        ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN);
-        ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN);
+        sig_level[NORTH] = ane_measure_ch(NORTH,  pulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN, true);
+        sig_level[SOUTH] = ane_measure_ch(SOUTH,  pulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN, true);
+        sig_level[EAST] = ane_measure_ch(EAST,  pulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN, true);
+        sig_level[WEST] = ane_measure_ch(WEST,  pulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN, true);
 
+        // test only
+        if(is_ane_proc)
+            send_to_processing(1, 0, ADC_SAMPLE_LEN-50, pulse, pulse_len);
 
         // to record the runtime
         rt_tick_t tick = rt_tick_get();
@@ -710,9 +836,10 @@ void thread_anemometer(void* parameters)
         bool is_data_correct = true;
         for(int idx = 0; idx < 4; idx ++)
         {
-            // offset to zero, and process
-            preprocess(adc_buffer[idx], sig, zero_level[idx], ADC_SAMPLE_LEN);
-            small_lpf(&sig[DEADZONE_OFFSET], VALID_LEN);
+            // convert to float
+            preprocess(adc_buffer[idx], sig2, sig_level[idx], ADC_SAMPLE_LEN);
+            // band pass filter.
+            filter(sig2, sig, ADC_SAMPLE_LEN, bp_coeff, bp_coeff_order);
             // normalize to -1 to 1
             normalize(&sig[DEADZONE_OFFSET], VALID_LEN);
 
@@ -734,30 +861,24 @@ void thread_anemometer(void* parameters)
             int peak_off;
             mini_mse = match_shape(ref_shape[idx], shape, PEAK_LEN, mse, MSE_RANGE);
             peak_off = mini_mse - MSE_RANGE/2;
-
-            static float mse_history = 0;
-            mse_history = 0.9*mse_history + 0.1*mse[mini_mse];
-            if(mse[mini_mse] > 0.01 + mse_history)
+            mse_history[idx] = 0.9*mse_history[idx] + 0.1*mse[mini_mse];
+            if(mse[mini_mse] > mse_history[idx]*10)
             {
-                LOG_W("cannot match signal, mse history:%f, mini mse: %f", mse_history, mse[mini_mse]);
-                LOG_W("mse: %f, %f, %f, %f, %f", mse[0],mse[1],mse[2],mse[3],mse[4]);
+                if(is_ane_log)
+                    LOG_W("cannot match signal, mse history:%f, mini mse: %f", mse_history[idx], mse[mini_mse]);
                 is_data_correct = false;
-//                for(int j=0; j<1000; j++)
-//                    printf("%f\n", sig[j]);
             }
             // dynamically update the ref_shapes
-            else if(!peak_off)
-            {
-                update_shape(ref_shape[idx], shape, 0.1);
-                //LOG_D("shape updated");
+            else if(!peak_off){
+                update_shape(ref_shape[idx], shape, 0.02);
             }
 
             // finally we can locate the main peak, despite the peak is distorted
-            if(peak_off){
-                LOG_W("peak offset %d, direction: %s", peak_off, ane_ch_names[idx]);
-                LOG_W("mse: %f, %f, %f, %f, %f", mse[0],mse[1],mse[2],mse[3],mse[4]);
-//                for(int j=0; j<1000; j++)
-//                    printf("%f\n", sig[j]);
+            if(is_ane_log && peak_off){
+                int buf_idx = 0;
+                for(int i=0; i<MSE_RANGE; i++)
+                    buf_idx += sprintf(&str_buf[buf_idx],"%f ",mse[i]);
+                LOG_W("peak offset %d, ch: %s, mse: %s",peak_off, ane_ch_names[idx], str_buf);
             }
 
             // we start the crossing point from the PEAK_ZC + offset detected by shape
@@ -773,6 +894,8 @@ void thread_anemometer(void* parameters)
             dt[idx] = average(zero_cross, NUM_ZC_AVG);
             dt[idx] += pulse_offset[idx];
         }
+
+        //printf("Sig level: N:%.2f, S:%.2f, E:%.2f, W:%.2f\n", sig_level[NORTH], sig_level[SOUTH], sig_level[EAST], sig_level[WEST]);
 
 //        {   // test
 //            rt_tick_t t = rt_tick_get();
@@ -791,6 +914,8 @@ void thread_anemometer(void* parameters)
         if(!is_data_correct)
         {
             err_count++;
+            if(is_ane_log)
+                LOG_W("Error count updated: %d", err_count);
             continue;
         }
 
@@ -810,15 +935,35 @@ void thread_anemometer(void* parameters)
         ew_c = height / sin_a * (1.0f/dt[EAST] + 1.0f/dt[WEST]);
         c = (ns_c + ew_c)/2;
 
+        // a basic hard check
+        if(270 > c || c > 365)
+            continue;
+
+        if(c_history == 0)
+            c_history = c;
+        c_history = c_history*0.9 + c*0.1;
+
         // course
         course = atan2f(-ew_v, -ns_v)/3.1415926*180 + 180;
 
-        // final check, if wind speed abnormal, then resample
+        // sound speed.
         est_c = speed_of_sound_from_T(air_info.temperature);
-        if(fabs(est_c - ns_c) > 5 || fabs(est_c - ew_c) > 5)
+
+        // final check, if wind speed abnormal, then resample
+        if(fabs(est_c - c) > 10 || fabs(c - c_history) > 5)
         {
             err_count++;
-            LOG_W("Wind speed abnormal, ns:%.1f, ew:%.1f, est_c:%.1f", ns_c, ew_c, est_c);
+            if(is_ane_log)
+                LOG_W("Wind speed abnormal, ns:%.1f, ew:%.1f, est_c:%.1f, err_count:%d", ns_c, ew_c, est_c, err_count);
+            // allow only one dump per second.
+            if(rt_tick_get() - last_dump > RT_TICK_PER_SECOND){
+                if(is_ane_log && ane_cfg->is_dump_error)
+                {
+                    LOG_I("Dumping error");
+                    last_dump = rt_tick_get();
+                    dump_error_measurement(err_count);
+                }
+            }
             continue;
         }
 
@@ -835,7 +980,7 @@ void thread_anemometer(void* parameters)
 
             anemometer.speed = sqrtf(ns_v_acc*ns_v_acc + ew_v_acc*ew_v_acc);;
             anemometer.soundspeed = c_acc;
-            if(anemometer.speed >= 0.5)
+            if(anemometer.speed >= 0.25)
                 anemometer.course = atan2f(-ew_v_acc, -ns_v_acc)/3.1415926*180 + 180;
             else
                 anemometer.course = -1;
@@ -849,12 +994,14 @@ void thread_anemometer(void* parameters)
             //printf("%4.1f, %4.1f, %7.3f,\n", anemometer.soundspeed, anemometer.course, anemometer.speed);
         }
 
-        LOG_I("run time %d ms", rt_tick_get() - tick); //19~30ms
+        //LOG_I("run time %d ms", rt_tick_get() - tick); //19~30ms
+        if(is_ane_log)
+        {
+            printf("Course=%5.1fdeg, V=%5.2fm/s, C=%5.1fm/s, ns=%5.2fm/s, ew=%5.2fm/s\n", course, v, c, ns_v, ew_v);
 
-        //printf("Course=%5.1fdeg, V=%5.2fm/s, C=%5.1fm/s, ns=%5.2fm/s, ew=%5.2fm/s\n", course, v, c, ns_v, ew_v);
-
-        //printf("Course=%3.1fdeg, %3.1f, %2.3f,\n",course, c, v);
-        //printf("%3.1f, %2.3f,\n", c, v);
+            //printf("Course=%3.1fdeg, %3.1f, %2.3f,\n",course, c, v);
+            //printf("%3.1f, %2.3f,\n", c, v);
+        }
 
         // frequency control
         rt_thread_mdelay(period - rt_tick_get() % period);
@@ -867,7 +1014,7 @@ void thread_anemometer(void* parameters)
 int thread_anemometer_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*4, 3, 1000);
+    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*4, 9, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

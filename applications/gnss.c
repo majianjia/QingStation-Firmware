@@ -76,7 +76,7 @@ enum minmea_sentence_id parse_nmea_sentence(char *line)
 //3=38400bps
 //4=57600bps
 //5=115200bps
-void gps_set_bitrate(rt_device_t serial, uint32_t bitrate)
+void gnss_set_bitrate(rt_device_t serial, uint32_t bitrate)
 {
     uint32_t opt = 0;
     switch(bitrate){
@@ -130,11 +130,11 @@ int detect_bitrate(rt_device_t serial, uint32_t num_of_try)
             temp = 0x01; // a !isprint() value
             do{
                 size = rt_device_read(serial, 0, &temp, 1);
-            }while(size == 0 && rt_tick_get() - start_tick <= 1000);
+            }while(size == 0 && rt_tick_get() - start_tick <= 1500);
             if(!isprint(temp) && (temp!='\n' && temp!='\r' && temp!='\0'))
                 is_char = false;
             // time out
-            if(rt_tick_get() - start_tick > 1000){
+            if(rt_tick_get() - start_tick > 1500){
                 is_char = false;
                 break;
             }
@@ -148,16 +148,50 @@ int detect_bitrate(rt_device_t serial, uint32_t num_of_try)
     return -1;
 }
 
+
+
+
+void gnss_enter_standby(rt_device_t serial, int sec)
+{
+    //$PCAS12,slp*CS<CR><LF>
+    char cmd[32] = "$PCAS12,";
+    int cs = 0;
+    int idx = strlen(cmd);
+    idx += sprintf(&cmd[idx],"%d", sec);
+    cs = cmd[1];
+    for(int i=2; i<idx; i++)
+        cs^=cmd[i];
+    idx += sprintf(&cmd[idx],"*%X\r\n", cs);
+    // send
+    rt_device_write(serial, 0, cmd, strlen(cmd));
+}
+
+// 1Hz, 2Hz, 4Hz, 5Hz, 10Hz
+void gnss_set_rate(rt_device_t serial, int32_t rate)
+{
+    //$PCAS12,slp*CS<CR><LF>
+    char cmd[32] = "$PCAS02,";
+    int cs = 0;
+    int idx = strlen(cmd);
+    idx += sprintf(&cmd[idx],"%d", 1000/rate);
+    cs = cmd[1];
+    for(int i=2; i<idx; i++)
+        cs^=cmd[i];
+    idx += sprintf(&cmd[idx],"*%X\r\n", cs);
+    // send
+    rt_device_write(serial, 0, cmd, strlen(cmd));
+}
+
 static bool is_echo = false;
 void thread_gnss(void* p)
 {
     #define BUFSIZE  256
     char line[BUFSIZE] = {0};
-    char buf [10];
+    char buf [32];
     int32_t size;
     int32_t index = 0;
     char ch;
-    int gnsss_bitrate = 0;
+    int gnss_bitrate = 0;
     struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
 
     rt_thread_mdelay(3000);
@@ -166,8 +200,8 @@ void thread_gnss(void* p)
     rt_device_open(serial, RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
 
     // try to scan the bitrates
-    gnsss_bitrate = detect_bitrate(serial, 30);
-    if(gnsss_bitrate == -1)
+    gnss_bitrate = detect_bitrate(serial, 30);
+    if(gnss_bitrate == -1)
     {
         LOG_E("Cannot detect gnss model bitrate, uart will be set to default %dbps", system_config.uart2.bitrate);
         config.baud_rate  =  system_config.uart2.bitrate;
@@ -175,15 +209,21 @@ void thread_gnss(void* p)
              LOG_E("change bitrate failed!\n");
     }
     // the detected bitrate is different than the system setting
-    else if(gnsss_bitrate != system_config.uart2.bitrate)
+    else if(gnss_bitrate != system_config.uart2.bitrate)
     {
         LOG_I("Set gnss model bitrate to %dbps per configuration file", system_config.uart2.bitrate);
-        gnsss_bitrate = system_config.uart2.bitrate;
-        gps_set_bitrate(serial, gnsss_bitrate);
-        config.baud_rate  =  gnsss_bitrate;
+        gnss_bitrate = system_config.uart2.bitrate;
+        gnss_set_bitrate(serial, gnss_bitrate);
+        config.baud_rate  =  gnss_bitrate;
         if(RT_EOK != rt_device_control(serial, RT_DEVICE_CTRL_CONFIG, &config))
              LOG_E("change bitrate failed!\n");
     }
+
+    gnss_set_rate(serial, 1); // this is working
+    gnss_enter_standby(serial, 25); //test
+
+    char cmd[] = "$PCAS12,60*28\r\n\0";
+    rt_device_write(serial, 0, cmd, strlen(cmd));
 
     // infinite loop
     while(1)
@@ -191,7 +231,7 @@ void thread_gnss(void* p)
         // wait for data.
         do{
            rt_sem_take(&rx_sem, RT_WAITING_FOREVER);
-           size = rt_device_read(serial, 0, buf, 10);
+           size = rt_device_read(serial, 0, buf, sizeof(buf));
         }while(size == 0);
 
         // check one by one
@@ -205,7 +245,6 @@ void thread_gnss(void* p)
             {
                 enum minmea_sentence_id id;
                 line[index] = '\0';
-                //rt_kprintf("%s", line);
                 id = parse_nmea_sentence(line);
 
                 if(id == MINMEA_SENTENCE_RMC)
@@ -221,6 +260,7 @@ void thread_gnss(void* p)
                     gnss.speed = minmea_tofloat(&rmc_frame.speed);
                     gnss.num_sat = gga_frame.satellites_tracked;
                     gnss.is_fixed = rmc_frame.valid;
+
                 }
 
                 if(is_echo)

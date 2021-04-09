@@ -78,14 +78,14 @@ void thread_imu(void* parameters)
     }
 
     // set up madgwick.
-    MadgwickAHRS_Init(cfg->update_rate, 0.1f);
+    MadgwickAHRS_Init(1000 / cfg->data_period, 0.1f);
 
     // register and init the bmx160
     imu_dev_t *imu = bmx160_register(i2c_bus);
     imu->init(imu);
 
     //
-    period = 1000/cfg->update_rate;
+    period = cfg->data_period;
 
     // load mag data
     // offset = (max+min)/2

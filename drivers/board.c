@@ -20,6 +20,9 @@ RT_WEAK void rt_hw_board_init()
 {
     extern void hw_board_init(char *clock_src, int32_t clock_src_freq, int32_t clock_target_freq);
 
+    // OTA
+
+
     /* Heap initialization */
 #if defined(RT_USING_HEAP)
     // default

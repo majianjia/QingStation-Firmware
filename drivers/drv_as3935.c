@@ -81,6 +81,48 @@ int as3935_read_data(uint32_t* distance, uint32_t* energy)
     return 0;
 }
 
+uint8_t as3935_read_int()
+{
+    uint8_t data;
+    if(!i2c_bus)
+        return 0;
+
+    read_regs(i2c_bus, AS3935_I2C_ADDR, AS3935_TUNEANT_REG, &data, 1);
+    return data & 0x7;
+}
+
+
+
+int as3935_enable_clock_output(uint8_t which)
+{
+    uint8_t temp;
+    read_regs(i2c_bus, AS3935_I2C_ADDR, AS3935_TUNEANT_REG, &temp, 1);
+    temp = (temp & 0x3f) | 0xc0;
+    write_regs(i2c_bus, AS3935_I2C_ADDR, AS3935_TUNEANT_REG, &temp, 1);
+    write_regs(i2c_bus, AS3935_I2C_ADDR, AS3935_TUNECAP_REG, &which, 1);
+    return 0;
+}
+
+// no need to enable?
+int as3935_interrupt_set(uint8_t mask)
+{
+//    uint8_t temp = 0x00;
+//    read_regs(i2c_bus, AS3935_I2C_ADDR, AS3935_TUNEANT_REG, &temp, 1);
+//
+//    temp = (temp & 0xf0) | (mask &0xf);
+//    write_regs(i2c_bus, AS3935_I2C_ADDR, AS3935_TUNEANT_REG, &temp, 1);
+
+    return 0;
+}
+
+int as3935_noise_level_set(uint8_t value)
+{
+    uint8_t temp = 0x00;
+    read_regs(i2c_bus, AS3935_I2C_ADDR, AS3935_NFLWDTH_REG, &temp, 1);
+    temp = (temp & 0xf0) | (value<<4 & 0xf);
+    write_regs(i2c_bus, AS3935_I2C_ADDR, AS3935_NFLWDTH_REG, &temp, 1);
+    return 0;
+}
 
 int as3935_init(rt_device_t bus)
 {
@@ -88,13 +130,6 @@ int as3935_init(rt_device_t bus)
     if(!bus)
         return -1;
     i2c_bus = bus;
-
-    // print all the registor for test
-    for(int i=0; i<9; i++)
-    {
-        read_regs(i2c_bus, AS3935_I2C_ADDR, i, &temp, 1);
-        LOG_I("REG: 0x%02X, 0x%02X", i, temp);
-    }
 
     // reset
     temp = 0x1;
@@ -113,6 +148,17 @@ int as3935_init(rt_device_t bus)
     rt_thread_mdelay(10);
     temp = 0x00;
     write_regs(bus, AS3935_I2C_ADDR, AS3935_TUNECAP_REG, &temp, 1);
+
+    // disable disturbor interrupt, irq output clock frequency = f/128
+    temp = 0xE0;
+    write_regs(bus, AS3935_I2C_ADDR, AS3935_TUNEANT_REG, &temp, 1);
+
+    // print all the registor for test
+    for(int i=0; i<9; i++)
+    {
+        read_regs(i2c_bus, AS3935_I2C_ADDR, i, &temp, 1);
+        LOG_I("REG: 0x%02X, 0x%02X", i, temp);
+    }
 
     return 0;
 }

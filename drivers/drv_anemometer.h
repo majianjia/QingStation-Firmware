@@ -22,7 +22,8 @@ typedef enum {
     NORTH = 0,
     EAST,
     SOUTH,
-    WEST
+    WEST,
+    CH_NONE,
 } ULTRASONIC_CHANNEL;
 
 static char ane_ch_names[][2] = {
@@ -43,7 +44,8 @@ void ane_pwr_control(uint32_t freq, bool flag);
 
 bool ane_check_busy();
 
-int ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len, uint16_t* adc_buf, uint32_t adc_len);
+float ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len,
+        uint16_t* adc_buf, uint32_t adc_len, bool is_calibrate);
 
 int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len);
 

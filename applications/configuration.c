@@ -93,8 +93,8 @@ void delete_sensor(sensor_config_t* list, char* name)
     .name = "",                 \
     .interface_name = "i2c2",   \
     .addr = 0,                  \
-    .update_rate = 1,           \
-    .oversampling = 0          \
+    .data_period = 1000,       \
+    .oversampling = 1          \
 }
 
 /* it control the system, should be a single instance*/
@@ -157,7 +157,7 @@ void bmx_create_json(sensor_config_t* config, cJSON* json)
 
     cJSON * temp = cJSON_CreateObject();
     if(!temp) return;
-    if(!cJSON_AddItemToObject(json, "setting", temp)) return;
+    if(!cJSON_AddItemToObject(json, "settings", temp)) return;
 
     if(!cJSON_AddNumberToObject(temp, "mag_offset_x", bmx->mag_offset_x)) return;
     if(!cJSON_AddNumberToObject(temp, "mag_offset_y", bmx->mag_offset_y)) return;
@@ -177,6 +177,9 @@ void bmx_load_json(sensor_config_t* config, cJSON* json)
     bmx = config->user_data;
 
     cJSON * temp;
+    json = cJSON_GetObjectItem(json, "settings");
+    if(!cJSON_IsObject(json))
+        return;
     temp = cJSON_GetObjectItem(json, "mag_offset_x");
     if(cJSON_IsNumber(temp))
         bmx->mag_offset_x = temp->valueint;
@@ -206,13 +209,14 @@ void anemo_create_json(sensor_config_t* config, cJSON* json)
 
     cJSON * temp = cJSON_CreateObject();
     if(!temp) return;
-    if(!cJSON_AddItemToObject(json, "setting", temp)) return;
+    if(!cJSON_AddItemToObject(json, "settings", temp)) return;
     if(!cJSON_AddNumberToObject(temp, "height", ane->height)) return;
     if(!cJSON_AddNumberToObject(temp, "pitch", ane->pitch)) return;
     if(!cJSON_AddNumberToObject(temp, "offset_n", ane->pulse_offset[NORTH])) return;
     if(!cJSON_AddNumberToObject(temp, "offset_e", ane->pulse_offset[EAST])) return;
     if(!cJSON_AddNumberToObject(temp, "offset_s", ane->pulse_offset[SOUTH])) return;
     if(!cJSON_AddNumberToObject(temp, "offset_w", ane->pulse_offset[WEST])) return;
+    if(!cJSON_AddBoolToObject(temp, "is_dump_error", ane->is_dump_error)) return;
 }
 
 void anemo_load_json(sensor_config_t* config, cJSON* json)
@@ -225,6 +229,9 @@ void anemo_load_json(sensor_config_t* config, cJSON* json)
     ane = config->user_data;
 
     cJSON * temp;
+    json = cJSON_GetObjectItem(json, "settings");
+    if(!cJSON_IsObject(json))
+        return;
     temp = cJSON_GetObjectItem(json, "height");
     if(cJSON_IsNumber(temp))
         ane->height = temp->valuedouble;
@@ -243,7 +250,9 @@ void anemo_load_json(sensor_config_t* config, cJSON* json)
     temp = cJSON_GetObjectItem(json, "offset_w");
     if(cJSON_IsNumber(temp))
         ane->pulse_offset[WEST] = temp->valuedouble;
-
+    temp = cJSON_GetObjectItem(json, "is_dump_error");
+    if(cJSON_IsBool(temp))
+        ane->is_dump_error = temp->valueint;
 }
 
 
@@ -268,7 +277,7 @@ void load_default_config(system_config_t* sys)
     s->user_data = bmx_cfg;
     s->create_json = bmx_create_json;
     s->load_json = bmx_load_json;
-    s->update_rate = 25;
+    s->data_period = 1000/25;
     sys->sensors = s;       // the first cannot use add_sensor().
 
     s = new_sensor("APDS9250", "i2c2");
@@ -289,18 +298,19 @@ void load_default_config(system_config_t* sys)
 
     // analog, channel is fixed on board. setting doesnt matter.
     s = new_sensor("Anemometer", "adc_ch5");
-    s->update_rate = 1;
+    s->data_period = 1000;
     s->oversampling = 2;
     if(s == NULL) return;
     anemometer_config_t* ane_cfg = malloc(sizeof(anemometer_config_t));
     if(ane_cfg == NULL) return;
     memset(ane_cfg, 0, sizeof(anemometer_config_t));
-    ane_cfg->height = 0.048f;     // default, normally set to 5 cm
+    ane_cfg->height = 0.05f;     // default, normally set to 5 cm
     ane_cfg->pitch = 0.04f;      // defualt pitch, based on the 3D file
     ane_cfg->pulse_offset[0] = 0;
     ane_cfg->pulse_offset[1] = 0;
     ane_cfg->pulse_offset[2] = 0;
     ane_cfg->pulse_offset[3] = 0;
+    ane_cfg->is_dump_error = false; // dump adc data when error
     s->user_data = ane_cfg;
     s->create_json = anemo_create_json;
     s->load_json = anemo_load_json;
@@ -308,23 +318,24 @@ void load_default_config(system_config_t* sys)
 
     s = new_sensor("Rain", "adc_ch6");
     if(s == NULL) return;
+    s->oversampling = 10;
     add_sensor(sys->sensors, s);
 
     // test
     sys->uart1.bitrate = 115200;
-    sys->uart2.bitrate = 115200;
+    sys->uart2.bitrate = 57600;
 
     // recorder
     sys->record.is_enable = true;
     sys->record.is_split_file = false;
-    strcpy(sys->record.header, "temp,humidity,pressure,light,num_sat,latitude,longitude,windcourse,windspeed,sndspeed");
+    strcpy(sys->record.header, "temp,humidity,pressure,bat_volt,light,num_sat,latitude,longitude,windcourse,windspeed,sndspeed");
     sys->record.period = 1000;
     strcpy(sys->record.root_path, "/");
 
     // log
     sys->log.is_enable = false;
     sys->log.is_repeat_header = true;
-    strcpy(sys->log.header,"temp,humidity,pressure,light,num_sat,latitude,longitude,windspeed");
+    strcpy(sys->log.header,"temp,humidity,pressure,bat_volt,light,num_sat,latitude,longitude,windspeed");
     sys->log.period = 10000;
 
     // test
@@ -435,17 +446,13 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
             if(cJSON_IsNumber(temp))
                 sensor_cfg->addr = temp->valueint;
 
-            temp = cJSON_GetObjectItem(sensor, "update_rate");
+            temp = cJSON_GetObjectItem(sensor, "data_period");
             if(cJSON_IsNumber(temp))
-                sensor_cfg->update_rate = temp->valueint;
+                sensor_cfg->data_period = temp->valueint;
 
             temp = cJSON_GetObjectItem(sensor, "oversampling");
             if(cJSON_IsNumber(temp))
                 sensor_cfg->oversampling = temp->valueint;
-
-//            temp = cJSON_GetObjectItem(sensor, "mode");
-//            if(cJSON_IsNumber(temp))
-//                sensor_cfg->mode = temp->valueint;
 
             // if there is private configuration, load.
             if(sensor_cfg->load_json)
@@ -496,9 +503,8 @@ char* create_json_from_config(system_config_t* sys)
         if(!cJSON_AddBoolToObject(temp, "enable", sensor_cfg->is_enable)) goto end;
         if(!cJSON_AddStringToObject(temp, "interface", sensor_cfg->interface_name)) goto end;
         if(!cJSON_AddNumberToObject(temp, "addr", sensor_cfg->addr)) goto end;
-        if(!cJSON_AddNumberToObject(temp, "update_rate", sensor_cfg->update_rate)) goto end;
+        if(!cJSON_AddNumberToObject(temp, "data_period", sensor_cfg->data_period)) goto end;
         if(!cJSON_AddNumberToObject(temp, "oversampling", sensor_cfg->oversampling)) goto end;
-        //if(!cJSON_AddNumberToObject(temp, "mode", sensor_cfg->mode)) goto end;
 
         // add private configuration.
         if(sensor_cfg->create_json)
@@ -528,6 +534,15 @@ end:
     cJSON_Delete(config);
     return ostring;
 }
+
+int sys_config(int argc, void*argv)
+{
+    char *out = create_json_from_config(&system_config);
+    printf(out);
+    free(out);
+    return 0;
+}
+MSH_CMD_EXPORT(sys_config, print system configuration)
 
 int save_system_cfg_to_file()
 {

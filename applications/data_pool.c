@@ -19,6 +19,7 @@
 #include "data_pool.h"
 
 // instances
+sys_t sys;
 gyro_t gyro;
 acc_t acc;
 mag_t mag;
@@ -68,6 +69,7 @@ float get_gnss_fixed(){return (int)gnss.is_fixed;}
 float get_ane_course(){return anemometer.course;}
 float get_ane_speed(){return anemometer.speed;}
 float get_ane_soundspeed(){return anemometer.soundspeed;}
+float get_sys_bat_volt(){return sys.bat_voltage;}
 
 
 /* here we map data to their names,
@@ -109,7 +111,8 @@ float (*get_data[])() = {
         get_gnss_fixed,
         get_ane_course,
         get_ane_speed,
-        get_ane_soundspeed
+        get_ane_soundspeed,
+        get_sys_bat_volt
 };
 
 /* simple getters */
@@ -150,6 +153,7 @@ int print_gnss_fixed(char*buf){if(gnss.is_fixed) return sprintf(buf, "true"); el
 int print_ane_course(char*buf){return sprintf(buf, "%.2f", anemometer.course);}
 int print_ane_speed(char*buf){return sprintf(buf, "%.2f", anemometer.speed);}
 int print_ane_soundspeed(char*buf){return sprintf(buf, "%.2f", anemometer.soundspeed);}
+int print_sys_bat_volt(char*buf){return sprintf(buf, "%.3f", sys.bat_voltage);}
 
 /* here we map data to their names,
  * so the log and recorder can be easily define which data we want by simply passing a header */
@@ -190,7 +194,8 @@ int (*print_data[])(char* ) = {
         print_gnss_fixed,
         print_ane_course,
         print_ane_speed,
-        print_ane_soundspeed
+        print_ane_soundspeed,
+        print_sys_bat_volt
 };
 
 /*  names of data is corresponded to the above data getters. */
@@ -231,7 +236,8 @@ const char data_name[][DATA_NAME_MAX_LEN] = {
         "fixed",
         "windcourse",
         "windspeed",
-        "sndspeed"
+        "sndspeed",
+        "bat_volt"
 };
 
 /* find the index of the getter (and name) */

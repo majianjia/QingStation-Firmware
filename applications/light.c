@@ -41,8 +41,6 @@ void thread_light(void* parameters)
         return;
     }
     // update rate in tick
-    period = 1000/cfg->update_rate;
-
     apds9250_init(i2c_bus);
     apds9250_select_sensor(APDS_SELECT_RGBIR);
 
@@ -50,7 +48,7 @@ void thread_light(void* parameters)
     {
         // add some delay in case the speed too fast, that case multiple run in 1ms
         rt_thread_delay(2);
-        rt_thread_delay(period - rt_tick_get()%period);
+        rt_thread_delay(cfg->data_period - rt_tick_get()%cfg->data_period);
 
         if(!cfg->is_enable)
             continue;
