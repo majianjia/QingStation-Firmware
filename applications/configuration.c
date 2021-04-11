@@ -330,6 +330,7 @@ void load_default_config(system_config_t* sys)
     sys->record.is_split_file = false;
     strcpy(sys->record.header, "temp,humidity,pressure,bat_volt,light,num_sat,latitude,longitude,windcourse,windspeed,sndspeed");
     sys->record.period = 1000;
+    sys->record.max_file_size = 4096*1024; // 4MB
     strcpy(sys->record.root_path, "/");
 
     // log
@@ -411,6 +412,10 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
         temp = cJSON_GetObjectItem(record, "period");
         if(cJSON_IsNumber(temp))
             sys->record.period = temp->valueint;
+
+        temp = cJSON_GetObjectItem(record, "max_file_size");
+        if(cJSON_IsNumber(temp))
+            sys->record.max_file_size = temp->valueint;
 
         temp = cJSON_GetObjectItem(record, "header");
         if(cJSON_IsString(temp) && temp->string != NULL)
@@ -519,6 +524,7 @@ char* create_json_from_config(system_config_t* sys)
     if(!cJSON_AddStringToObject(record, "header", sys->record.header)) goto end;
     if(!cJSON_AddStringToObject(record, "root_path", sys->record.root_path)) goto end;
     if(!cJSON_AddNumberToObject(record, "period", sys->record.period)) goto end;
+    if(!cJSON_AddNumberToObject(record, "max_file_size", sys->record.max_file_size)) goto end;
 
     log = cJSON_CreateObject();
     if(!record) goto end;

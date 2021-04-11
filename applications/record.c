@@ -26,6 +26,29 @@
 #include "recorder.h"
 #include "time.h"
 
+recorder_t * new_file(char* line)
+{
+    time_t timep;
+    char filepath[128];
+    recorder_t* recorder;
+    // timestamp
+    time(&timep);
+    strftime(line, 64, "%Y%m%d_%H%M%S", gmtime(&timep));
+    snprintf(filepath, 128, "%s/%s_%s", system_config.record.root_path, line,"log.csv");
+    recorder = recorder_create(filepath, "rec", 256, 2000);
+    if(recorder == NULL)
+    {
+        // temporary check.
+        LOG_E("Cannot create recording file");
+        while(1)
+            rt_thread_delay(1000);
+    }
+    recorder_write(recorder, "timestamp,");
+    recorder_write(recorder, system_config.record.header);
+    recorder_write(recorder, "\n");
+    return recorder;
+}
+
 
 void thread_record(void* parameters)
 {
@@ -37,26 +60,8 @@ void thread_record(void* parameters)
     while(!is_system_cfg_valid() && system_config.record.is_enable)
         rt_thread_mdelay(1000);
 
-    //
-    // timestamp
-    time(&timep);
-    strftime(line, 64, "%Y%m%d_%H%M%S", gmtime(&timep));
-    char filepath[128];
-    snprintf(filepath, 128, "%s/%s_%s", system_config.record.root_path, line,"log.csv");
-
-    recorder_t* recorder = recorder_create(filepath, "rec", 256, 2000);
-
-    if(recorder == NULL)
-    {
-        // temporary check.
-        LOG_E("Cannot create recording file");
-        while(1)
-            rt_thread_delay(1000);
-    }
-    recorder_write(recorder, "timestamp,");
-    recorder_write(recorder, system_config.record.header);
-    recorder_write(recorder, "\n");
-
+    // create one
+    recorder_t* recorder = new_file(line);
     // copy for us to destroy :p
     // get what data do we want.
     strncpy(line, system_config.record.header, 256);
@@ -86,8 +91,14 @@ void thread_record(void* parameters)
         // now write to recorder
         recorder_write(recorder, line);
 
+        // new file when needed.
+        if(system_config.record.is_split_file &&
+                recorder->file_size >= system_config.record.max_file_size){
+            recorder = new_file(line);
+        }
+
         // add some delay in case the speed too fast, that case multiple run in 1ms
-        rt_thread_delay(20);
+        rt_thread_mdelay(system_config.record.period/16);
     }
 }
 

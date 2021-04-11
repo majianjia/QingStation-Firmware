@@ -15,6 +15,7 @@
 #include <rtdevice.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "string.h"
 
 #define DBG_TAG "main"
 #define DBG_LVL DBG_LOG

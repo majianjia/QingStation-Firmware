@@ -56,17 +56,12 @@ void thread_log(void* parameters)
         rt_thread_mdelay(system_config.log.period - rt_tick_get() % system_config.log.period);
         if(!system_config.log.is_enable)
             continue;
-        rt_tick_t timestamp = rt_tick_get();
         str_index = 0;
 
         // timestamp
         time(&timep);
         struct tm * timeinfo = gmtime(&timep);
         str_index += strftime(str_buf, 32, "%Y%m%d_%H%M%S", timeinfo);
-
-//        if(is_repeated_header)
-//            str_index += sprintf(str_buf, "timestamp:");
-//        str_index += sprintf(str_buf+str_index, "%d", timestamp);
 
         for(uint32_t i=0; i<data_len; i++ )
         {

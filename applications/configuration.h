@@ -50,6 +50,7 @@ typedef struct record_config
     char root_path[MAX_PATH_LEN]; // the root of recording file. no longer than 31 chars.
     char header[MAX_HEADER_LEN];    // the header of recording, it also control what data will be recorded.
     uint32_t period;            // millisecond
+    uint32_t max_file_size;     // when is_split is enable.
 } record_config_t;
 
 typedef struct log_config
