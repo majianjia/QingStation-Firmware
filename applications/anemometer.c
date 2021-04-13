@@ -768,6 +768,7 @@ void thread_anemometer(void* parameters)
     }else {
         LOG_I("Anemometer calibration completed, based on %d measurements", count);
     }
+    rt_thread_mdelay(50);
 
     // Test zone
     //record_raw("/raw.csv", 100, true, pulse, pulse_len);
@@ -862,6 +863,10 @@ void thread_anemometer(void* parameters)
             mini_mse = match_shape(ref_shape[idx], shape, PEAK_LEN, mse, MSE_RANGE);
             peak_off = mini_mse - MSE_RANGE/2;
             mse_history[idx] = 0.9*mse_history[idx] + 0.1*mse[mini_mse];
+            if(isnanf(mse[0])){
+                is_data_correct = false;
+                break;
+            }
             if(mse[mini_mse] > mse_history[idx]*10)
             {
                 if(is_ane_log)
@@ -882,7 +887,6 @@ void thread_anemometer(void* parameters)
             }
 
             // we start the crossing point from the PEAK_ZC + offset detected by shape
-            //int off = echo_shape[idx][PEAK_ZC - peak_off][0];
             int off = shape[PEAK_ZC + peak_off][0];
             float zero_cross[ZEROCROSS_LEN] = {0};
             linear_interpolation_zerocrossing(&sig[DEADZONE_OFFSET + off], VALID_LEN-off, zero_cross, ZEROCROSS_LEN);
@@ -896,19 +900,6 @@ void thread_anemometer(void* parameters)
         }
 
         //printf("Sig level: N:%.2f, S:%.2f, E:%.2f, W:%.2f\n", sig_level[NORTH], sig_level[SOUTH], sig_level[EAST], sig_level[WEST]);
-
-//        {   // test
-//            rt_tick_t t = rt_tick_get();
-//            correlation(corr_sig[0], CORR_LEN, corr_sig[2], CORR_LEN, corr_sigout);
-//            LOG_I("tick %dms", rt_tick_get() - t);
-//
-//            for(int i = 0; i<CORR_LEN; i++)
-//                printf("%f\n", corr_sig[0][i]);
-//            for(int i = 0; i<CORR_LEN; i++)
-//                printf("%f\n", corr_sig[2][i]);
-//            for(int i = 0; i<CORR_LEN*2; i++)
-//                printf("%f\n", corr_sigout[i]);
-//        }
 
         // any channel cannot match the beam shape, then redo the sampling immediately.
         if(!is_data_correct)
@@ -998,7 +989,6 @@ void thread_anemometer(void* parameters)
         if(is_ane_log)
         {
             printf("Course=%5.1fdeg, V=%5.2fm/s, C=%5.1fm/s, ns=%5.2fm/s, ew=%5.2fm/s\n", course, v, c, ns_v, ew_v);
-
             //printf("Course=%3.1fdeg, %3.1f, %2.3f,\n",course, c, v);
             //printf("%3.1f, %2.3f,\n", c, v);
         }

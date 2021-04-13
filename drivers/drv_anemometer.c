@@ -86,6 +86,7 @@ TIM_HandleTypeDef htim3;
 
 void TIM3_Init(uint32_t frequency)
 {
+  extern void HAL_TIM_MspPostInit(TIM_HandleTypeDef* htim);
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
   htim3.Instance = TIM3;
@@ -257,17 +258,14 @@ float ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len,
         start_sampling(adc_buf, adc_len);
         send_pulse(no_pulse, 1);
         // user need to wait for the ADC sampling.
-        do{rt_thread_delay(2);} while(ane_check_busy());
+        do{rt_thread_delay(1);} while(ane_check_busy());
         for(int i=0; i<adc_len; i++)
             sig_level += adc_buf[i];
         sig_level /= adc_len;
     }
 
-    // disable interrupt to minimize jitter
-    rt_enter_critical();
     start_sampling(adc_buf, adc_len);
     send_pulse(pulse, pulse_len);
-    rt_exit_critical();
 
     // user need to wait for the ADC sampling.
     do{rt_thread_delay(1);}while(ane_check_busy());

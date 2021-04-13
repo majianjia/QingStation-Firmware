@@ -97,7 +97,7 @@ void thread_record(void* parameters)
             recorder = new_file(line);
         }
 
-        // add some delay in case the speed too fast, that case multiple run in 1ms
+        // add some delay in case the speed too fast, that case multiple runs in 1ms
         rt_thread_mdelay(system_config.record.period/16);
     }
 }

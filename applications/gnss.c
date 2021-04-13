@@ -249,7 +249,8 @@ void thread_gnss(void* p)
 
                 if(id == MINMEA_SENTENCE_RMC)
                 {
-                    if(rmc_frame.time.seconds == 0 && rmc_frame.valid) // sync clock every minutes
+                    if((rmc_frame.time.seconds == 0 && rmc_frame.valid) ||
+                            time(NULL) < 1262304000) // sync clock every minutes or if the TS < 2010/01/01
                     {
                         set_date(rmc_frame.date.year+2000, rmc_frame.date.month, rmc_frame.date.day);
                         set_time(rmc_frame.time.hours, rmc_frame.time.minutes, rmc_frame.time.seconds);

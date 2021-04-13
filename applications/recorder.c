@@ -33,7 +33,7 @@ static void thread_recorder(void* parameter)
     recorder_t *recorder = (recorder_t*) parameter;
     do
     {
-        if(rt_mq_recv(recorder->msg, recorder->buf, recorder->max_msg_size, RT_WAITING_FOREVER) == RT_ETIMEOUT)
+        if(rt_mq_recv(recorder->msg, recorder->buf, recorder->max_msg_size, 1000) == RT_ETIMEOUT)
             continue;
 
         if(recorder->fd < 0)
@@ -117,10 +117,9 @@ recorder_t * recorder_create(const char file_path[], const char name[], uint32_t
     recorder->buf = (char*)recorder + sizeof(recorder_t);
     recorder->max_msg_size = msg_size;
     recorder->fd = fd;
-    recorder->file_path = file_path;
     recorder->reopen_after = reopen_after_ticks;
     recorder->is_open = true;
-
+    strncpy(recorder->file_path, file_path, 128);
     // message queue as a buffer to store data.
     recorder->msg = rt_mq_create(tname, recorder->max_msg_size, 8, RT_IPC_FLAG_FIFO);
     if(!recorder->msg)

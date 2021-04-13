@@ -37,7 +37,7 @@ typedef struct _recorder_t
    uint32_t file_size;
    int32_t error_code;
    int fd;                      // file handle
-   const char *file_path;       // path of the file
+   char file_path[128];       // path of the file
    rt_tick_t reopen_after;      // save/reopen the file after a certain tick. 0 indicate do not reopen.
    rt_tick_t _last_timestamp;   // do not touch
 } recorder_t;
