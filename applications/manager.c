@@ -47,7 +47,7 @@ int thread_manager_init()
 {
     rt_thread_t tid;
 
-    tid = rt_thread_create("mngr", thread_manager, RT_NULL, 2048, 12, 1000);
+    tid = rt_thread_create("mngr", thread_manager, RT_NULL, 1024, 12, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

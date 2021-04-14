@@ -61,7 +61,7 @@ void thread_environment(void* parameters)
 int thread_environment_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("env", thread_environment, RT_NULL, 2048, 12, 1000);
+    tid = rt_thread_create("env", thread_environment, RT_NULL, 1024, 12, 1000);
     if(!tid)
         return RT_ERROR;
 

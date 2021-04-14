@@ -94,6 +94,7 @@ void thread_record(void* parameters)
         // new file when needed.
         if(system_config.record.is_split_file &&
                 recorder->file_size >= system_config.record.max_file_size){
+            recorder_delete(recorder);
             recorder = new_file(line);
         }
 

@@ -56,6 +56,8 @@ I2C_HandleTypeDef hi2c2;
 UART_HandleTypeDef hlpuart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_lpuart_rx;
+DMA_HandleTypeDef hdma_lpuart_tx;
 
 RTC_HandleTypeDef hrtc;
 
@@ -466,7 +468,7 @@ static void MX_LPUART1_UART_Init(void)
 
   /* USER CODE END LPUART1_Init 1 */
   hlpuart1.Instance = LPUART1;
-  hlpuart1.Init.BaudRate = 209700;
+  hlpuart1.Init.BaudRate = 115200;
   hlpuart1.Init.WordLength = UART_WORDLENGTH_7B;
   hlpuart1.Init.StopBits = UART_STOPBITS_1;
   hlpuart1.Init.Parity = UART_PARITY_NONE;
@@ -757,6 +759,7 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
@@ -771,6 +774,12 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
+  /* DMA2_Channel6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
+  /* DMA2_Channel7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Channel7_IRQn);
 
 }
 
@@ -826,7 +835,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : PB12 */
   GPIO_InitStruct.Pin = GPIO_PIN_12;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PB15 */

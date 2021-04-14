@@ -30,10 +30,12 @@ void led_indicate_release();
 static void thread_recorder(void* parameter)
 {
     int32_t result;
+    rt_err_t rsl = 0;
     recorder_t *recorder = (recorder_t*) parameter;
     do
     {
-        if(rt_mq_recv(recorder->msg, recorder->buf, recorder->max_msg_size, 1000) == RT_ETIMEOUT)
+        rsl = rt_mq_recv(recorder->msg, recorder->buf, recorder->max_msg_size, 1000);
+        if(rsl == -RT_ETIMEOUT)
             continue;
 
         if(recorder->fd < 0)
@@ -56,8 +58,7 @@ static void thread_recorder(void* parameter)
             close(recorder->fd);
             recorder->fd = -1; // marked as closed. reopen required.
         }
-    }
-    while(recorder->is_open);
+    }while(recorder->is_open || rsl != -RT_ETIMEOUT); // wait for empty
 
     if(recorder->fd >= 0)
         close(recorder->fd);

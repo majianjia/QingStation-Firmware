@@ -1,5 +1,15 @@
 [
  {
+  "path": "/packages/iot/umqtt", 
+  "ver": "v1.0.0", 
+  "name": "UMQTT"
+ }, 
+ {
+  "path": "/packages/iot/netutils", 
+  "ver": "v1.2.0", 
+  "name": "NETUTILS"
+ }, 
+ {
   "path": "/packages/iot/at_device", 
   "ver": "latest", 
   "name": "AT_DEVICE"

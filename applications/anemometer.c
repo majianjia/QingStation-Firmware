@@ -63,7 +63,7 @@ float sig2[ADC_SAMPLE_LEN] = {0}; // buffer for filter
 float sig_level[4] = {0};   // signal level for each channels
 
 // test
-#define CORR_LEN (300)
+#define CORR_LEN (100)
 float corr_sig[4][CORR_LEN] = {0};
 float corr_sigout[2*CORR_LEN+1] = {0};
 
@@ -303,6 +303,45 @@ int capture_peaks(float* sig, int sig_len, float peaks[][2], int peak_left_len, 
     return peak_detected_len;
 }
 
+int locate_main_peak(float peaks[][2], int peak_len)
+{
+    // locate the main peak by the interception of 2 linear functions
+    // the first function is from the peaks before the maximum peaks,
+    // the second function is from the peaks after.
+    float a1, b1, a2, b2;
+    float p1[2], p2[2], p3[2], p4[2]; // points (x,y) y=ax+b
+    p1[0] = peaks[0][0];
+    p1[1] = peaks[0][1];
+    p2[0] = peaks[2][0];
+    p2[1] = peaks[2][1];
+
+    p3[0] = peaks[peak_len-3][0];
+    p3[1] = peaks[peak_len-3][1];
+    p4[0] = peaks[peak_len-1][0];
+    p4[1] = peaks[peak_len-1][1];
+
+    a1 = (p1[1] - p2[1]) / (p1[0] - p2[0]); // a = (y-y1)/(x-x1)
+    b1 = p1[1] - p1[0]*a1;
+
+    a2 = (p3[1] - p4[1])/(p3[0] - p4[0]) ;
+    b2 = p3[1] - p3[0]*a2;
+
+    float x = (b2-b1)/(a1-a2);
+    float y = x * a1 + b1;  // not needed.
+
+    // search for main peak
+    int idx;
+    for(idx=0; idx<peak_len; idx++)
+    {
+        if(peaks[idx][1] > 0){
+            if(peaks[idx][0] > x)
+                break;
+        }
+    }
+
+    return idx - PEAK_LEFT; // return the offset of the main peak
+}
+
 // compare 2 peaks arrays, find offset of it.
 int match_shape(float peaks1[][2], float peaks2[][2], int len, float mse[], int search_range)
 {
@@ -530,6 +569,7 @@ int calibration(float* static_zero_cross, float* echo_shape, float* zero_level, 
         // we start the crossing point from the PEAK_ZC
         float peaks_zero[4][PEAK_LEN][2] = {0};
         float zero_cross[4][ZEROCROSS_LEN] = {0};
+        int peak_off[4] = {0};
         for(int idx = 0; idx < 4; idx++)
         {
             // convert to float
@@ -542,7 +582,12 @@ int calibration(float* static_zero_cross, float* echo_shape, float* zero_level, 
 
             // search original peaks, use to rough estimate the data.
             capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, peaks_zero[idx], PEAK_LEFT, PEAK_RIGHT, 0.2);
-            int off = peaks_zero[idx][PEAK_ZC][0];
+
+            // use linear functions to locate the main peak, this is different from the mse method in realtime measurement.
+            peak_off[idx] = locate_main_peak(peaks_zero[idx], PEAK_LEN);
+
+            int off = peaks_zero[idx][PEAK_ZC + peak_off[idx]][0];
+            //int off = peaks_zero[idx][PEAK_ZC][0];
             linear_interpolation_zerocrossing(&sig[DEADZONE_OFFSET + off], VALID_LEN-off, zero_cross[idx], ZEROCROSS_LEN);
 
             // recover the actual timestamp from start
@@ -551,10 +596,10 @@ int calibration(float* static_zero_cross, float* echo_shape, float* zero_level, 
         }
 
         // record if the numbers looks correct
-        if(fabs(zero_cross[NORTH][0] - zero_cross[SOUTH][0]) < 2 && // same channel
-           fabs(zero_cross[WEST][0] - zero_cross[EAST][0]) < 2 &&
-           fabs(zero_cross[NORTH][0] - zero_cross[EAST][0]) < 10 &&  // cross channel
-           fabs(zero_cross[SOUTH][0] - zero_cross[WEST][0]) < 10)
+        if(fabs(zero_cross[NORTH][PEAK_ZC] - zero_cross[SOUTH][PEAK_ZC]) < 2 && // same channel
+           fabs(zero_cross[WEST][PEAK_ZC] - zero_cross[EAST][PEAK_ZC]) < 2 &&
+           fabs(zero_cross[NORTH][PEAK_ZC] - zero_cross[EAST][PEAK_ZC]) < 10 &&  // cross channel
+           fabs(zero_cross[SOUTH][PEAK_ZC] - zero_cross[WEST][PEAK_ZC]) < 10)
         {
             count++;
             // sum them up
@@ -566,8 +611,6 @@ int calibration(float* static_zero_cross, float* echo_shape, float* zero_level, 
             for(int idx = 0; idx < 4; idx++)
             for(int j=0; j<PEAK_LEN; j++)
             {
-//                echo_shape[idx][j][0] += peaks_zero[idx][j][0];
-//                echo_shape[idx][j][1] += peaks_zero[idx][j][1];
                 *(echo_shape + (idx*PEAK_LEN + j)*2 + 0) += peaks_zero[idx][j][0];
                 *(echo_shape + (idx*PEAK_LEN + j)*2 + 1) += peaks_zero[idx][j][1];
             }
@@ -603,21 +646,6 @@ void update_shape(float ref[PEAK_LEN][2], float curr[PEAK_LEN][2], float rate)
     for(int i=0; i<PEAK_LEN; i++)
         ref[i][0] = ref[i][0] * (1-rate) + curr[i][0]*rate;
 }
-
-//void correlation(float* sig1, int len1, float* sig2, int len2, float* out)
-//{
-//    int len = len1 + len2;
-//    for(int i=0; i<len; i++)
-//    {
-//        int start1 = len1 - i;
-//        int end1 = i;
-//        if(start1 <0) start1 = 0;
-//        if(end1 > len1) end1 = len1;
-//        for(int j=start1)
-//
-//
-//    }
-//}
 
 void correlation(float* sig1, int len1, float* sig2, int len2, float* out)
 {
@@ -996,8 +1024,6 @@ void thread_anemometer(void* parameters)
         // frequency control
         rt_thread_mdelay(period - rt_tick_get() % period);
     }
-
-    free(sig);
 }
 
 
