@@ -185,7 +185,7 @@ void thread_imu(void* parameters)
 int thread_imu_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("imu", thread_imu, RT_NULL, 1024, 10, 1000);
+    tid = rt_thread_create("imu", thread_imu, RT_NULL, 1024+128, 10, 1000);
     if(!tid)
         return RT_ERROR;
 

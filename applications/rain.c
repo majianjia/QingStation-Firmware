@@ -39,6 +39,9 @@ ADC_ChannelConfTypeDef ADC_ChanConf;
 static void MX_ADC1_Init(void)
 {
     hadc1.Instance = ADC1;
+    HAL_ADC_DeInit(&hadc1);
+
+    hadc1.Instance = ADC1;
     hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
     hadc1.Init.Resolution = ADC_RESOLUTION_12B;
     hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;

@@ -338,7 +338,6 @@ int locate_main_peak(float peaks[][2], int peak_len)
                 break;
         }
     }
-
     return idx - PEAK_LEFT; // return the offset of the main peak
 }
 
@@ -889,7 +888,9 @@ void thread_anemometer(void* parameters)
             int mini_mse;
             int peak_off;
             mini_mse = match_shape(ref_shape[idx], shape, PEAK_LEN, mse, MSE_RANGE);
-            peak_off = mini_mse - MSE_RANGE/2;
+            // use linear functions to locate the main peak, this is different from the mse method in realtime measurement.
+            peak_off = locate_main_peak(shape, PEAK_LEN);
+            //peak_off =  mini_mse - MSE_RANGE/2;
             mse_history[idx] = 0.9*mse_history[idx] + 0.1*mse[mini_mse];
             if(isnanf(mse[0])){
                 is_data_correct = false;
