@@ -68,4 +68,4 @@ int thread_environment_init()
     rt_thread_startup(tid);
     return RT_EOK;
 }
-INIT_APP_EXPORT(thread_environment_init);
+INIT_APP_EXPORT(thread_environment_init); // no noise

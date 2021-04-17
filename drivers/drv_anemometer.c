@@ -210,7 +210,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
 {
     if(htim->Instance == TIM3)
     {
-         HAL_TIM_PWM_Stop_DMA(&htim3, TIM_CHANNEL_1);
+        HAL_TIM_PWM_Stop_DMA(&htim3, TIM_CHANNEL_1);
     }
 }
 
@@ -242,7 +242,7 @@ static inline void setup_adc_sampling(uint16_t* buffer, uint32_t length)
 
 // test functions
 // send a pulse from CH side, then sample the opposite side ADC data. NORTH -> SOUTH
-float ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len,
+float ane_measure_ch(ULTRASONIC_CHANNEL ch, const uint16_t *pulse, const uint16_t pulse_len,
         uint16_t* adc_buf, uint32_t adc_len, bool is_calibrate)
 {
     uint16_t no_pulse[1]={0};
@@ -250,7 +250,7 @@ float ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len,
     set_output_channel(ch);
     // see if delay needed. and see if need to perform zero_level sampling here.
     // >1ms is enough for the drivers to raise enough charge.
-    rt_thread_delay(4); // this cannot be smaller than 10
+    rt_thread_delay(3);
 
     // calibrate
     if(is_calibrate)
@@ -263,15 +263,14 @@ float ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len,
             sig_level += adc_buf[i];
         sig_level /= adc_len;
     }
-
+    // real work
     start_sampling(adc_buf, adc_len);
     send_pulse(pulse, pulse_len);
 
     // user need to wait for the ADC sampling.
     do{rt_thread_delay(1);}while(ane_check_busy());
 
-    // reset all driver.
-    set_output_channel(CH_NONE);
+    set_output_channel(CH_NONE); // disable driver
     return sig_level;
 }
 // input: the RECEIVER side that willing to take the sample.

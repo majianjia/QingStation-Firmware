@@ -180,8 +180,6 @@ void thread_imu(void* parameters)
     }
 }
 
-
-
 int thread_imu_init()
 {
     rt_thread_t tid;
@@ -192,4 +190,4 @@ int thread_imu_init()
     rt_thread_startup(tid);
     return RT_EOK;
 }
-INIT_APP_EXPORT(thread_imu_init);
+INIT_APP_EXPORT(thread_imu_init);// small noise

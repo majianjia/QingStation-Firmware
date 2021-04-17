@@ -35,7 +35,6 @@ typedef struct _sensor_info_t
     float update_rate;
     float update_timestamp;
     uint32_t count;
-
 }sensor_info_t;
 
 
@@ -75,6 +74,7 @@ typedef struct _anemometer_t {
     float course;
     float speed;
     float soundspeed;
+    int err_code;
 } anemometer_t;
 extern anemometer_t anemometer;
 

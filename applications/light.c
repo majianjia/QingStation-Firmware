@@ -78,4 +78,4 @@ int thread_light_init()
     rt_thread_startup(tid);
     return RT_EOK;
 }
-INIT_APP_EXPORT(thread_light_init);
+//INIT_APP_EXPORT(thread_light_init);

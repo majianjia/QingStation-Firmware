@@ -42,6 +42,12 @@ void io_irq_disable(void)
 }
 
 
+static bool is_calibrating = true;
+bool is_lightning_calibrating()
+{
+    return is_calibrating;
+}
+
 void thread_lightning(void* parameters)
 {
     rt_device_t i2c_bus;
@@ -65,12 +71,13 @@ void thread_lightning(void* parameters)
         return;
     }
 
-    rt_thread_delay(5000);
+    rt_thread_delay(500);
 
     as3935_init(i2c_bus);
     io_irq_enable();
 
     LOG_I("Antenna calibrating");
+    is_calibrating = true;
     for(int i=0;i<16; i++)
     {
         calib_cap = i;
@@ -84,6 +91,7 @@ void thread_lightning(void* parameters)
             break;
         LOG_D("ant: count:%d, sample times:%d, freq = %f", cali_count, t, calib_f);
     }
+    is_calibrating = false;
     as3935_enable_clock_output(calib_cap); // disable clock output.
     LOG_I("Calibration is done: freq: %.1fkHz, calib_cap:%d x 8pF", calib_f, calib_cap);
 

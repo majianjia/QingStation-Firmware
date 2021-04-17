@@ -33,6 +33,14 @@ static char ane_ch_names[][2] = {
     "W"
 };
 
+#ifndef MIN
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
+#ifndef MAX
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#endif
+
+
 // pin for analog swith selection.
 #define PIN_DRV_EN0    GET_PIN(A, 5)
 #define PIN_DRV_EN1    GET_PIN(B, 2)
@@ -44,7 +52,7 @@ void ane_pwr_control(uint32_t freq, bool flag);
 
 bool ane_check_busy();
 
-float ane_measure_ch(ULTRASONIC_CHANNEL ch, uint16_t *pulse, uint16_t pulse_len,
+float ane_measure_ch(ULTRASONIC_CHANNEL ch, const uint16_t *pulse, const uint16_t pulse_len,
         uint16_t* adc_buf, uint32_t adc_len, bool is_calibrate);
 
 int adc_sample(ULTRASONIC_CHANNEL ch, uint16_t* adc_buf, uint32_t adc_len);

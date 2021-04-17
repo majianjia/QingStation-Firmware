@@ -69,6 +69,7 @@ float get_gnss_fixed(){return (int)gnss.is_fixed;}
 float get_ane_course(){return anemometer.course;}
 float get_ane_speed(){return anemometer.speed;}
 float get_ane_soundspeed(){return anemometer.soundspeed;}
+float get_ane_err_code(){return anemometer.err_code;}
 float get_sys_bat_volt(){return sys.bat_voltage;}
 
 
@@ -112,6 +113,7 @@ float (*get_data[])() = {
         get_ane_course,
         get_ane_speed,
         get_ane_soundspeed,
+        get_ane_err_code,
         get_sys_bat_volt
 };
 
@@ -153,6 +155,7 @@ int print_gnss_fixed(char*buf){if(gnss.is_fixed) return sprintf(buf, "true"); el
 int print_ane_course(char*buf){return sprintf(buf, "%.2f", anemometer.course);}
 int print_ane_speed(char*buf){return sprintf(buf, "%.2f", anemometer.speed);}
 int print_ane_soundspeed(char*buf){return sprintf(buf, "%.2f", anemometer.soundspeed);}
+int print_ane_err_code(char*buf){return sprintf(buf, "%d", anemometer.err_code);};
 int print_sys_bat_volt(char*buf){return sprintf(buf, "%.3f", sys.bat_voltage);}
 
 /* here we map data to their names,
@@ -195,6 +198,7 @@ int (*print_data[])(char* ) = {
         print_ane_course,
         print_ane_speed,
         print_ane_soundspeed,
+        print_ane_err_code,
         print_sys_bat_volt
 };
 
@@ -237,6 +241,7 @@ const char data_name[][DATA_NAME_MAX_LEN] = {
         "windcourse",
         "windspeed",
         "sndspeed",
+        "ane_err",
         "bat_volt"
 };
 

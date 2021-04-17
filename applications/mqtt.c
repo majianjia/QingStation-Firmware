@@ -57,6 +57,16 @@ void thread_mqtt(void* p)
     #define BUFSIZE  256
     char line[BUFSIZE] = {0};
 
+    struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
+    rt_device_t serial = rt_device_find(esp0.client_name);
+    rt_device_open(serial, RT_DEVICE_FLAG_INT_RX);
+
+    config.baud_rate  =  BAUD_RATE_115200;
+    if(RT_EOK != rt_device_control(serial, RT_DEVICE_CTRL_CONFIG, &config))
+         rt_kprintf("change %s failed!\n", esp0.client_name);
+
+    //esp8266_device_register();
+
     // infinite loop
     while(1)
     {
