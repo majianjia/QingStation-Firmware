@@ -136,7 +136,7 @@ int print_quat_q1(char*buf) {return sprintf(buf, "%.7f", orientation.q[1]);}
 int print_quat_q2(char*buf) {return sprintf(buf, "%.7f", orientation.q[2]);}
 int print_quat_q3(char*buf) {return sprintf(buf, "%.7f", orientation.q[3]);}
 int print_air_pressure(char*buf){return sprintf(buf, "%.2f", air_info.pressure);}
-int print_air_humidity(char*buf){return sprintf(buf, "%.3f", air_info.humidity);}
+int print_air_humidity(char*buf){return sprintf(buf, "%.2f", air_info.humidity);}
 int print_air_temperature(char*buf){return sprintf(buf, "%.3f", air_info.temperature);}
 int print_light_info_r(char*buf){return sprintf(buf, "%d", light_info.R);}
 int print_light_info_g(char*buf){return sprintf(buf, "%d", light_info.G);}
@@ -244,6 +244,8 @@ const char data_name[][DATA_NAME_MAX_LEN] = {
         "ane_err",
         "bat_volt"
 };
+
+const int EXPORT_DATA_SIZE = (sizeof(data_name)/DATA_NAME_MAX_LEN);
 
 /* find the index of the getter (and name) */
 uint32_t get_data_index(char* name)

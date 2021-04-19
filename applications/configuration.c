@@ -321,16 +321,12 @@ void load_default_config(system_config_t* sys)
     s->oversampling = 10;
     add_sensor(sys->sensors, s);
 
-    // test
-    sys->uart1.bitrate = 115200;
-    sys->uart2.bitrate = 57600;
-
     // recorder
     sys->record.is_enable = true;
-    sys->record.is_split_file = false;
+    sys->record.is_split_file = true;
     strcpy(sys->record.header, "temp,humidity,pressure,bat_volt,light,num_sat,latitude,longitude,windcourse,windspeed,sndspeed");
     sys->record.period = 1000;
-    sys->record.max_file_size = 4096*1024; // 4MB
+    sys->record.max_file_size = 2048*1024; // 4MB
     strcpy(sys->record.root_path, "/");
 
     // log
@@ -339,8 +335,25 @@ void load_default_config(system_config_t* sys)
     strcpy(sys->log.header,"temp,humidity,pressure,bat_volt,light,num_sat,latitude,longitude,windspeed");
     sys->log.period = 10000;
 
-    // test
-    sys->ane_record_pulse = false;
+    // mqtt
+    sys->mqtt.is_enable = true;
+    sys->mqtt.period = 10000;
+    sys->mqtt.baudrate = 115200;
+    strcpy(sys->mqtt.interface,"lpuart1");
+    strcpy(sys->mqtt.module,"esp8266");
+    strcpy(sys->mqtt.wifi_ssid,"");
+    strcpy(sys->mqtt.wifi_password,"");
+    strcpy(sys->mqtt.mqtt_username,"");
+    strcpy(sys->mqtt.mqtt_password,"");
+    strcpy(sys->mqtt.pub_data, ""); // empty means every data is published.
+    strcpy(sys->mqtt.uri, "broker.emqx.io");
+    sys->mqtt.port = 1883;
+
+    // gnss
+    sys->gnss.is_enable = true;
+    sys->gnss.period = 1000;
+    sys->gnss.baudrate = 57600;
+    strcpy(sys->gnss.interface, "uart2");
 }
 
 
@@ -351,7 +364,8 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
     cJSON *log = NULL;
     cJSON *record = NULL;
     cJSON *version = NULL;
-    cJSON *uart = NULL;
+    cJSON *mqtt = NULL;
+    cJSON *gnss = NULL;
 
     int status = 0;
     config = cJSON_Parse(json_strings);
@@ -426,6 +440,82 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
             strncpy(sys->record.root_path, temp->valuestring, 32);
     }
 
+    // mqtt
+    mqtt = cJSON_GetObjectItemCaseSensitive(config, "mqtt");
+    if (cJSON_IsObject(mqtt))
+    {
+        cJSON * temp;
+        temp = cJSON_GetObjectItem(mqtt, "enable");
+        if(cJSON_IsBool(temp))
+            sys->mqtt.is_enable = temp->valueint;
+
+        temp = cJSON_GetObjectItem(mqtt, "period");
+        if(cJSON_IsNumber(temp))
+            sys->mqtt.period = temp->valueint;
+
+        temp = cJSON_GetObjectItem(mqtt, "baudrate");
+        if(cJSON_IsNumber(temp))
+            sys->mqtt.baudrate = temp->valueint;
+
+        temp = cJSON_GetObjectItem(mqtt, "interface");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.interface, temp->valuestring, sizeof(sys->mqtt.interface));
+
+        temp = cJSON_GetObjectItem(mqtt, "module");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.module, temp->valuestring, sizeof(sys->mqtt.module));
+
+        temp = cJSON_GetObjectItem(mqtt, "wifi_ssid");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.wifi_ssid, temp->valuestring, sizeof(sys->mqtt.wifi_ssid));
+
+        temp = cJSON_GetObjectItem(mqtt, "wifi_password");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.wifi_password, temp->valuestring, sizeof(sys->mqtt.wifi_password));
+
+        temp = cJSON_GetObjectItem(mqtt, "mqtt_username");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.mqtt_username, temp->valuestring, sizeof(sys->mqtt.mqtt_username));
+
+        temp = cJSON_GetObjectItem(mqtt, "mqtt_password");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.mqtt_password, temp->valuestring, sizeof(sys->mqtt.mqtt_password));
+
+        temp = cJSON_GetObjectItem(mqtt, "uri");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.uri, temp->valuestring, sizeof(sys->mqtt.uri));
+
+        temp = cJSON_GetObjectItem(mqtt, "port");
+        if(cJSON_IsNumber(temp))
+            sys->mqtt.port = temp->valueint;
+
+        temp = cJSON_GetObjectItem(mqtt, "pub_data");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.pub_data, temp->valuestring, sizeof(sys->mqtt.pub_data));
+    }
+
+    // gnss
+    gnss = cJSON_GetObjectItemCaseSensitive(config, "gnss");
+    if (cJSON_IsObject(gnss))
+    {
+        cJSON * temp;
+        temp = cJSON_GetObjectItem(gnss, "enable");
+        if(cJSON_IsBool(temp))
+            sys->gnss.is_enable = temp->valueint;
+
+        temp = cJSON_GetObjectItem(gnss, "period");
+        if(cJSON_IsNumber(temp))
+            sys->gnss.period = temp->valueint;
+
+        temp = cJSON_GetObjectItem(gnss, "baudrate");
+        if(cJSON_IsNumber(temp))
+            sys->gnss.baudrate = temp->valueint;
+
+        temp = cJSON_GetObjectItem(gnss, "interface");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->gnss.interface, temp->valuestring, sizeof(sys->gnss.interface));
+    }
+
     // sensor list
     sensors = cJSON_GetObjectItem(config, "sensors");
     if(cJSON_IsObject(sensors))
@@ -479,7 +569,6 @@ end:
 }
 
 
-
 char* create_json_from_config(system_config_t* sys)
 {
     char *ostring = NULL;
@@ -488,6 +577,8 @@ char* create_json_from_config(system_config_t* sys)
     cJSON *temp = NULL;
     cJSON *log = NULL;
     cJSON *record = NULL;
+    cJSON *mqtt = NULL;
+    cJSON *gnss = NULL;
 
     // roots
     config = cJSON_CreateObject();
@@ -533,6 +624,30 @@ char* create_json_from_config(system_config_t* sys)
     if(!cJSON_AddBoolToObject(log, "repeat_header", sys->log.is_repeat_header)) goto end;
     if(!cJSON_AddStringToObject(log, "header", sys->log.header)) goto end;
     if(!cJSON_AddNumberToObject(log, "period", sys->log.period)) goto end;
+
+    mqtt = cJSON_CreateObject();
+    if(!mqtt) goto end;
+    if(!cJSON_AddItemToObject(config, "mqtt", mqtt)) goto end;
+    if(!cJSON_AddBoolToObject(mqtt, "enable", sys->mqtt.is_enable)) goto end;
+    if(!cJSON_AddNumberToObject(mqtt, "period", sys->mqtt.period)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "interface", sys->mqtt.interface)) goto end;
+    if(!cJSON_AddNumberToObject(mqtt, "baudrate", sys->mqtt.baudrate)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "module", sys->mqtt.module)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "wifi_ssid", sys->mqtt.wifi_ssid)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "wifi_password", sys->mqtt.wifi_password)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "mqtt_username", sys->mqtt.mqtt_username)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "mqtt_password", sys->mqtt.mqtt_password)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "uri", sys->mqtt.uri)) goto end;
+    if(!cJSON_AddNumberToObject(mqtt, "port", sys->mqtt.port)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "pub_data", sys->mqtt.pub_data)) goto end;
+
+    gnss = cJSON_CreateObject();
+    if(!gnss) goto end;
+    if(!cJSON_AddItemToObject(config, "gnss", gnss)) goto end;
+    if(!cJSON_AddBoolToObject(gnss, "enable", sys->gnss.is_enable)) goto end;
+    if(!cJSON_AddNumberToObject(gnss, "period", sys->gnss.period)) goto end;
+    if(!cJSON_AddStringToObject(gnss, "interface", sys->gnss.interface)) goto end;
+    if(!cJSON_AddNumberToObject(gnss, "baudrate", sys->gnss.baudrate)) goto end;
 
     ostring = cJSON_Print(config);
 

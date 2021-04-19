@@ -30,7 +30,6 @@
 #include <at_device_esp8266.h>
 #include "wifi_password.h"
 
-
 #include "umqtt.h"
 #include "umqtt_internal.h"
 
@@ -228,16 +227,12 @@ void thread_mqtt(void* p)
         data_len = get_data_orders(str_buf, ", ", orders, 32);
     }
 
-    // wait for SAL and AT device.
-    rt_thread_mdelay(5000);
-
     // start mqtt
     LOG_I("Start MQTT");
     mqtt_start();
     while(!is_mqtt_linked())
         rt_thread_delay(100);
     LOG_I("MQTT linked");
-
 
     // infinite loop
     while(1)
@@ -249,9 +244,10 @@ void thread_mqtt(void* p)
 //            print_data[i](line);
 //            mqtt_publish(topic, line);
 //            rt_thread_mdelay(50);
+
             print_data[orders[i]](line);
             mqtt_publish(data_name[orders[i]], line);
-            rt_thread_mdelay(800); // this must be large enough.
+            rt_thread_mdelay(100); // this must be large enough.
         }
     }
 }

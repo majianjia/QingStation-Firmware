@@ -17,7 +17,7 @@
 #define IDLE_THREAD_STACK_SIZE 512
 #define RT_USING_TIMER_SOFT
 #define RT_TIMER_THREAD_PRIO 4
-#define RT_TIMER_THREAD_STACK_SIZE 512
+#define RT_TIMER_THREAD_STACK_SIZE 1536
 #define RT_DEBUG
 #define RT_DEBUG_COLOR
 #define RT_DEBUG_INIT_CONFIG
@@ -176,7 +176,7 @@
 
 #define SAL_USING_AT
 /* end of protocol stack implement */
-#define SAL_SOCKETS_NUM 16
+#define SAL_USING_POSIX
 /* end of Socket abstraction layer */
 
 /* Network interface device */
@@ -197,11 +197,9 @@
 /* AT commands */
 
 #define RT_USING_AT
-#define AT_DEBUG
 #define AT_USING_CLIENT
 #define AT_CLIENT_NUM_MAX 1
 #define AT_USING_SOCKET
-#define AT_USING_CLI
 #define AT_CMD_MAX_LEN 128
 #define AT_SW_VERSION_NUM 0x10301
 /* end of AT commands */
@@ -216,7 +214,6 @@
 #define RT_USING_ULOG
 #define ULOG_OUTPUT_LVL_D
 #define ULOG_OUTPUT_LVL 7
-#define ULOG_USING_ISR_LOG
 #define ULOG_ASSERT_ENABLE
 #define ULOG_LINE_BUF_SIZE 512
 #define ULOG_USING_ASYNC_OUTPUT
@@ -242,7 +239,6 @@
 /* IoT - internet of things */
 
 #define PKG_USING_UMQTT
-#define PKG_USING_UMQTT_EXAMPLE
 #define PKG_UMQTT_SUBRECV_DEF_LENGTH 4
 #define PKG_UMQTT_INFO_DEF_SENDSIZE 1024
 #define PKG_UMQTT_INFO_DEF_RECVSIZE 1024
@@ -256,10 +252,10 @@
 #define PKG_UMQTT_INFO_DEF_THREAD_STACK_SIZE 2048
 #define PKG_UMQTT_INFO_DEF_THREAD_PRIORITY 10
 #define PKG_UMQTT_MSG_QUEUE_ACK_DEF_SIZE 4
-#define PKG_UMQTT_CONNECT_KEEPALIVE_DEF_TIME 0xffff
+#define PKG_UMQTT_CONNECT_KEEPALIVE_DEF_TIME 65535
 #define PKG_UMQTT_PUBLISH_RECON_MAX 3
 #define PKG_UMQTT_QOS2_QUE_MAX 1
-#define PKG_USING_UMQTT_V100
+#define PKG_USING_UMQTT_LATEST_VERSION
 
 /* Wi-Fi */
 
@@ -277,7 +273,7 @@
 #define NETUTILS_NTP_HOSTNAME "1.uk.pool.ntp.org"
 #define NETUTILS_NTP_HOSTNAME2 "ntp.rt-thread.org"
 #define NETUTILS_NTP_HOSTNAME3 "edu.ntp.org.cn"
-#define PKG_USING_NETUTILS_V120
+#define PKG_USING_NETUTILS_LATEST_VERSION
 #define PKG_USING_AT_DEVICE
 #define AT_DEVICE_USING_ESP8266
 #define PKG_USING_AT_DEVICE_LATEST_VERSION

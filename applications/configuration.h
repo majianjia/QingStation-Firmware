@@ -18,7 +18,7 @@
 #include "cjson/cjson.h"
 
 #define MAX_NAME_LEN    (16)
-#define MAX_HEADER_LEN  (512)
+#define MAX_HEADER_LEN  (256)
 #define MAX_PATH_LEN    (32)
 
 typedef struct sensor_config
@@ -35,12 +35,6 @@ typedef struct sensor_config
     void (*load_json)(struct sensor_config*, cJSON*);
 } sensor_config_t;
 
-typedef struct uart_config
-{
-    bool is_enable;
-    int bitrate;                // target bit rate. for GPS, it can auto detect the bit rate.
-    char device[MAX_NAME_LEN];  // the type of device (GPS, AT client, AT server, log) that connected to this uart.
-} uart_config_t;
 
 typedef struct record_config
 {
@@ -62,25 +56,6 @@ typedef struct log_config
     uint32_t period;            // millisecond
 } log_config_t;
 
-// configuration of the station
-// align with json config file
-typedef struct system_config {
-    int32_t version;
-    bool is_valid;      // whether it is valid to use.
-    sensor_config_t *sensors;
-
-    uart_config_t uart1;
-    uart_config_t uart2;
-
-    log_config_t log;        // logging to uart.
-    record_config_t record;  // record to file.
-
-    // debugging
-    bool ane_record_pulse;
-
-} system_config_t;
-
-
 typedef struct _bmx160_config_t
 {
     // magnetometer calibration value
@@ -99,6 +74,48 @@ typedef struct _anemometer_config_t
     float pulse_offset[4]; // time offset for each channel.
     bool is_dump_error; // save error
 } anemometer_config_t;
+
+
+typedef struct _mqtt_config_t
+{
+    char interface[12];      // name of uart device
+    int baudrate;           // baudrate for the uart.
+    char module[12];    // type of module,
+    char wifi_ssid[16];      // if wifi, the ssid
+    char wifi_password[32];  // if wifi, password
+    char mqtt_username[16];
+    char mqtt_password[32];
+    char pub_data[MAX_HEADER_LEN];  // select the data to publish
+    char uri[64];       // uri
+    int port;           // port
+    int period;         // update period in ms
+    bool is_enable;
+} mqtt_config_t;
+
+typedef struct _gnss_config_t
+{
+    char interface[12];      // name of uart device
+    int baudrate;           // baudrate for the uart.
+    int period;         // update period in ms 1,2,4,5,10 HZ = 1000/500/250/200/100
+    bool is_enable;
+} gnss_config_t;
+
+// configuration of the station
+// align with json config file
+typedef struct system_config {
+    int32_t version;
+    bool is_valid;      // whether it is valid to use.
+    sensor_config_t *sensors;
+
+    log_config_t log;        // logging to uart.
+    record_config_t record;  // record to file.
+
+    mqtt_config_t mqtt;
+    gnss_config_t gnss;
+
+} system_config_t;
+
+
 
 extern system_config_t system_config;
 bool is_system_cfg_valid();

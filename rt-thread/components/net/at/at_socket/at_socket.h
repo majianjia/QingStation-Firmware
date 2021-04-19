@@ -139,6 +139,7 @@ int at_setsockopt(int socket, int level, int optname, const void *optval, sockle
 struct hostent *at_gethostbyname(const char *name);
 int at_getaddrinfo(const char *nodename, const char *servname, const struct addrinfo *hints, struct addrinfo **res);
 void at_freeaddrinfo(struct addrinfo *ai);
+int at_iocontrolsocket(int s, long cmd,  void *arg);
 
 struct at_socket *at_get_socket(int socket);
 

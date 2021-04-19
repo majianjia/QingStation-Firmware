@@ -141,6 +141,8 @@ extern float (*get_data[])();
 extern int (*print_data[])(char* );
 extern const char data_name[][DATA_NAME_MAX_LEN];
 
+extern const int EXPORT_DATA_SIZE;
+
 /* get data getter index by its name*/
 uint32_t get_data_index(char* name);
 

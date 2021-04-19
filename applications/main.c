@@ -82,8 +82,6 @@ int32_t get_key_strings(const char* key, char* buf)
     return -1;
 }
 
-
-
 int main(void)
 {
     int count = 1;

@@ -620,21 +620,28 @@ void print_raw(int times, bool is_sample, uint16_t* pulse, uint16_t pulse_len)
 // return the channel that connected.
 // each bit represent the channel.
 // 0 = no connection.
-uint32_t check_transducer_connection(const uint16_t* pulse, const uint32_t pulse_len)
+uint32_t check_transducer_data(float zero[])
 {
    uint32_t ch = 0;
    int max = 0;
    for(int i=0; i<4; i++)
    {
-       float zero = ane_measure_ch(i,  pulse, pulse_len, adc_buffer[i], ADC_SAMPLE_LEN, true);
        for(int j=DEADZONE_OFFSET; j<ADC_SAMPLE_LEN; j++)
            max = MAX(max, adc_buffer[i][j]);
-       if(max > zero + 50)
+       if(max > zero[i] + 50)
            ch = ch | (0x01 << i);
    }
    return ch;
 }
 
+uint32_t check_transducer_connection(const uint16_t* pulse, const uint32_t pulse_len)
+{
+   float zero[4];
+   for(int i=0; i<4; i++){
+       zero[i] = ane_measure_ch(i,  pulse, pulse_len, adc_buffer[i], ADC_SAMPLE_LEN, true);
+   }
+   return check_transducer_data(zero);
+}
 
 void get_pulse_offset(float offset[], float zero_cross[][ZEROCROSS_LEN], float propagation_time)
 {
@@ -739,7 +746,7 @@ int calibration2(float* static_zero_cross, float* echo_shape, float* sig,
 
     // capture pattern.
     int count = 0;
-    for (int i = 0; i<256 && count<16; i++)
+    for (int i = 0; i<256 && count<32; i++)
     {
         sig_level[NORTH] = ane_measure_ch(NORTH,  cpulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN, true);
         sig_level[SOUTH] = ane_measure_ch(SOUTH,  cpulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN, true);
@@ -763,7 +770,7 @@ int calibration2(float* static_zero_cross, float* echo_shape, float* sig,
                 peaks_zero[idx][j][0] += DEADZONE_OFFSET + start_idx;
             // measure zero cross
             int off = peaks_zero[idx][PEAK_ZC][0];
-            linear_interpolation_zerocrossing(&sig[off], VALID_LEN-off, zero_cross[idx], ZEROCROSS_LEN);
+            linear_interpolation_zerocrossing(&sig[off], ADC_SAMPLE_LEN-off, zero_cross[idx], ZEROCROSS_LEN);
             // recover the actual timestamp from start
             for(int j=0; j<ZEROCROSS_LEN; j++)
                 zero_cross[idx][j] += off;
@@ -1139,7 +1146,7 @@ cycle_end:
 int thread_anemometer_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*4, 9, 1000);
+    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*4, 10, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

@@ -79,7 +79,7 @@ static const struct sal_socket_ops at_socket_ops =
     at_shutdown,
     NULL,
     NULL,
-    NULL,
+    at_iocontrolsocket,
 #ifdef SAL_USING_POSIX
     at_poll,
 #endif /* SAL_USING_POSIX */

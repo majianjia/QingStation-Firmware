@@ -38,28 +38,27 @@ ADC_ChannelConfTypeDef ADC_ChanConf;
 
 static void MX_ADC1_Init(void)
 {
-    hadc1.Instance = ADC1;
-    HAL_ADC_DeInit(&hadc1);
+    do{
+        rt_thread_delay(100);
+        hadc1.Instance = ADC1;
+        HAL_ADC_DeInit(&hadc1);
 
-    hadc1.Instance = ADC1;
-    hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
-    hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-    hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-    hadc1.Init.ScanConvMode = DISABLE;
-    hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-    hadc1.Init.LowPowerAutoWait = DISABLE;
-    hadc1.Init.ContinuousConvMode = DISABLE;
-    hadc1.Init.NbrOfConversion = 1;
-    hadc1.Init.DiscontinuousConvMode = DISABLE;
-    hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-    hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-    hadc1.Init.DMAContinuousRequests = DISABLE;
-    hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-    hadc1.Init.OversamplingMode = DISABLE;
-    if (HAL_ADC_Init(&hadc1) != HAL_OK)
-    {
-      Error_Handler();
-    }
+        hadc1.Instance = ADC1;
+        hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+        hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+        hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+        hadc1.Init.ScanConvMode = DISABLE;
+        hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+        hadc1.Init.LowPowerAutoWait = DISABLE;
+        hadc1.Init.ContinuousConvMode = DISABLE;
+        hadc1.Init.NbrOfConversion = 1;
+        hadc1.Init.DiscontinuousConvMode = DISABLE;
+        hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+        hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+        hadc1.Init.DMAContinuousRequests = DISABLE;
+        hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+        hadc1.Init.OversamplingMode = DISABLE;
+    } while( HAL_ADC_Init(&hadc1) != HAL_OK); // sometimes this fail.
 }
 
 int get_adc_value(uint32_t channel)

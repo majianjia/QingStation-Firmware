@@ -1333,4 +1333,9 @@ void at_freeaddrinfo(struct addrinfo *ai)
     }
 }
 
+int at_iocontrolsocket(int s, long cmd,  void *arg)
+{
+    return 0;
+}
+
 #endif /* AT_USING_SOCKET */
