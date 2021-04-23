@@ -1282,6 +1282,20 @@ static void stm32_uart_get_dma_config(void)
     uart_config[UART6_INDEX].dma_tx = &uart6_dma_tx;
 #endif
 #endif
+
+#ifdef BSP_USING_LPUART1
+    uart_obj[LPUART1_INDEX].uart_dma_flag = 0;
+#ifdef BSP_LPUART1_RX_USING_DMA
+    uart_obj[LPUART1_INDEX].uart_dma_flag |= RT_DEVICE_FLAG_DMA_RX;
+    static struct dma_config lpuart1_dma_rx = LPUART1_DMA_RX_CONFIG;
+    uart_config[LPUART1_INDEX].dma_rx = &lpuart1_dma_rx;
+#endif
+#ifdef BSP_LPUART1_TX_USING_DMA
+    uart_obj[LPUART1_INDEX].uart_dma_flag |= RT_DEVICE_FLAG_DMA_TX;
+    static struct dma_config lpuart1_dma_tx = LPUART1_DMA_TX_CONFIG;
+    uart_config[LPUART1_INDEX].dma_tx = &lpuart1_dma_tx;
+#endif
+#endif
 }
 
 int rt_hw_usart_init(void)

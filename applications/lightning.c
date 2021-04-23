@@ -130,7 +130,7 @@ int thread_lightning_init()
 {
     rt_thread_t tid;
 
-    tid = rt_thread_create("lightni", thread_lightning, RT_NULL, 1024, 25, 1000);
+    tid = rt_thread_create("lightni", thread_lightning, RT_NULL, 1024+512, 25, 1000);
     if(!tid)
         return RT_ERROR;
 

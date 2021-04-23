@@ -26,7 +26,7 @@
 #include "recorder.h"
 #include "time.h"
 
-recorder_t * new_file(char* line)
+recorder_t * new_file(char* line, int max_msg_size)
 {
     time_t timep;
     char filepath[128];
@@ -34,8 +34,8 @@ recorder_t * new_file(char* line)
     // timestamp
     time(&timep);
     strftime(line, 64, "%Y%m%d_%H%M%S", gmtime(&timep));
-    snprintf(filepath, 128, "%s/%s_%s", system_config.record.root_path, line,"log.csv");
-    recorder = recorder_create(filepath, "rec", 256, 2000);
+    snprintf(filepath, 128, "%s/%s_%s", system_config.record.data_path, line,"log.csv");
+    recorder = recorder_create(filepath, "rec", 2000);
     if(recorder == NULL)
     {
         // temporary check.
@@ -43,40 +43,64 @@ recorder_t * new_file(char* line)
         while(1)
             rt_thread_delay(1000);
     }
-    recorder_write(recorder, "timestamp,");
-    recorder_write(recorder, system_config.record.header);
-    recorder_write(recorder, "\n");
     return recorder;
 }
 
-
 void thread_record(void* parameters)
 {
-    uint16_t orders[32];
+    #define MSG_SIZE 512
+    uint16_t orders[64];
     uint32_t data_len = 0;
-    char line[256] = {0};
+    char line[MSG_SIZE] = {0};
     time_t timep;
     // wait until system cfg loaded
     while(!is_system_cfg_valid() && system_config.record.is_enable)
         rt_thread_mdelay(1000);
 
+    if(access(system_config.record.data_path, 0)){
+        mkdir(system_config.record.data_path, 777);
+    }
+    if(access(system_config.record.data_path, 0))
+    {
+        LOG_E("data recording folder cannot be create : %s", system_config.record.data_path);
+    }
+
     // create one
-    recorder_t* recorder = new_file(line);
+    recorder_t* recorder = new_file(line, MSG_SIZE);
     // copy for us to destroy :p
     // get what data do we want.
-    strncpy(line, system_config.record.header, 256);
-    data_len = get_data_orders(line, ", ", orders, 32);
+    strncpy(line, system_config.record.header, MSG_SIZE);
+
+    // find out the data to be export (publish)
+    if(strlen(system_config.record.header) == 0)
+    {
+        data_len = EXPORT_DATA_SIZE-1; // data 0 is "unknown"
+        for(int i=0; i<data_len; i++)
+            orders[i] = i+1;
+    }
+    // if the field is empty, then we print all data.
+    else{
+        strncpy(line, system_config.record.header, MSG_SIZE);
+        data_len = get_data_orders(line, ", ", orders, 64);
+
+    }
+    // write header
+    recorder_write(recorder, "timestamp");
+    for(int i=0; i<data_len; i++)
+    {
+        sprintf(line, ",%s",data_name[orders[i]]);
+        recorder_write(recorder, line);
+    }
+    recorder_write(recorder, "\n");
 
     while(1)
     {
         rt_thread_mdelay(system_config.record.period - rt_tick_get() % system_config.record.period);
-        //rt_tick_t timestamp = rt_tick_get();
         int index = 0;
-        //index += sprintf(&line[index], "%d", timestamp);
 
         // timestamp
         time(&timep);
-        index += strftime(&line[index], 32, "%H%M%S",  gmtime(&timep));
+        index += strftime(&line[index], 64, "%Y%m%d%H%M%S",  gmtime(&timep));
 
         // print each data to the str
         for(uint32_t i=0; i<data_len; i++)
@@ -95,7 +119,15 @@ void thread_record(void* parameters)
         if(system_config.record.is_split_file &&
                 recorder->file_size >= system_config.record.max_file_size){
             recorder_delete(recorder);
-            recorder = new_file(line);
+            recorder = new_file(line, MSG_SIZE);
+            // write header
+            recorder_write(recorder, "timestamp");
+            for(int i=1; i<data_len; i++)
+            {
+                sprintf(line, ",%s",data_name[i]);
+                recorder_write(recorder, data_name[i]);
+            }
+            recorder_write(recorder, "\n");
         }
 
         // add some delay in case the speed too fast, that case multiple runs in 1ms

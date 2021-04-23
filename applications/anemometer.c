@@ -44,8 +44,8 @@ enum{
 // M = modulation frequency
 // B = barker code type
 
-//const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L, L, H}; // ++++++---++-+
-const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L, L, H}; // +++++---++-+
+const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L, L, H}; // ++++++---++-+
+//const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L, L, H}; // +++++---++-+
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L}; // +++++---++ // best for single peak method
 
 
@@ -588,7 +588,7 @@ int record_raw(const char* path, int times, bool is_sample, uint16_t* pulse, uin
 {
     recorder_t *recorder = NULL;
     char str[32] = {0}; // buffer is small, taker care.
-    recorder = recorder_create(path, "North,South,East,West", 32, 20000);
+    recorder = recorder_create(path, "North,South,East,West", 20000);
     for (int i = 0; i<times; i++)
     {
         if(is_sample)
@@ -690,7 +690,7 @@ int dump_error_measurement(int error_count)
     time(&timep);
     strftime(str, 64, "%Y%m%d_%H%M%S", gmtime(&timep));
     snprintf(filepath, 64, "/wind_err/%s_%d_%s", str, error_count,"err.csv");
-    recorder = recorder_create(filepath, "North,South,East,West", 64, 20000);
+    recorder = recorder_create(filepath, "North,South,East,West",  20000);
     // dump
     for(int j=0; j<ADC_SAMPLE_LEN; j++){
         sprintf(str, "%d,%d,%d,%d\n", adc_buffer[0][j], adc_buffer[2][j],adc_buffer[1][j],adc_buffer[3][j]);
@@ -1037,7 +1037,7 @@ void thread_anemometer(void* parameters)
         {
             err_count++;
             if(is_ane_log)
-                LOG_W("Error count updated: %d, err_code:%d", err_count, anemometer.err_code);
+                LOG_W("Error count updated: %d, err_code:%d", err_count, err);
             goto cycle_end;
         }
 
@@ -1146,7 +1146,7 @@ cycle_end:
 int thread_anemometer_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*4, 10, 1000);
+    tid = rt_thread_create("anemo", thread_anemometer, RT_NULL, 1024*4, 24, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

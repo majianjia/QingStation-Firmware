@@ -32,8 +32,8 @@ extern "C" {
     }
 #endif /* LPUART1_CONFIG */
 #if defined(BSP_LPUART1_RX_USING_DMA)
-#ifndef LPUART1_DMA_CONFIG
-#define LPUART1_DMA_CONFIG                                          \
+#ifndef LPUART1_DMA_RX_CONFIG
+#define LPUART1_DMA_RX_CONFIG                                          \
     {                                                               \
         .Instance = LPUART1_RX_DMA_INSTANCE,                        \
         .request  = LPUART1_RX_DMA_REQUEST,                         \

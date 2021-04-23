@@ -5,6 +5,11 @@
   "name": "UMQTT"
  }, 
  {
+  "path": "/packages/iot/mymqtt", 
+  "ver": "latest", 
+  "name": "MYMQTT"
+ }, 
+ {
   "path": "/packages/iot/netutils", 
   "ver": "latest", 
   "name": "NETUTILS"

@@ -31,7 +31,7 @@ void at_print_raw_cmd(const char *name, const char *buf, rt_size_t size)
 
     for (i = 0; i < size; i += WIDTH_SIZE)
     {
-        rt_kprintf("[D/AT] %s: %04X-%04X: ", name, i, i + WIDTH_SIZE);
+        rt_kprintf("[D/AT] %d %s: %04X-%04X: ", rt_tick_get(), name, i, i + WIDTH_SIZE);
         for (j = 0; j < WIDTH_SIZE; j++)
         {
             if (i + j < size)

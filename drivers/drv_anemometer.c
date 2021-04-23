@@ -255,8 +255,10 @@ float ane_measure_ch(ULTRASONIC_CHANNEL ch, const uint16_t *pulse, const uint16_
     // calibrate
     if(is_calibrate)
     {
+        //rt_enter_critical(); // it affect the UART to receive data.
         start_sampling(adc_buf, adc_len);
         send_pulse(no_pulse, 1);
+        //rt_exit_critical();
         // user need to wait for the ADC sampling.
         do{rt_thread_delay(1);} while(ane_check_busy());
         for(int i=0; i<adc_len; i++)
@@ -264,8 +266,10 @@ float ane_measure_ch(ULTRASONIC_CHANNEL ch, const uint16_t *pulse, const uint16_
         sig_level /= adc_len;
     }
     // real work
+    //rt_enter_critical();
     start_sampling(adc_buf, adc_len);
     send_pulse(pulse, pulse_len);
+    //rt_exit_critical();
 
     // user need to wait for the ADC sampling.
     do{rt_thread_delay(1);}while(ane_check_busy());

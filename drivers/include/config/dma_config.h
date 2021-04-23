@@ -195,6 +195,7 @@ extern "C" {
 #define UART1_TX_DMA_IRQ                DMA2_Channel6_IRQn
 #endif
 
+
 /* DMA2 channel7 */
 #if defined(BSP_UART1_RX_USING_DMA) && !defined(UART1_RX_DMA_INSTANCE)
 #define UART1_DMA_RX_IRQHandler         DMA2_Channel7_IRQHandler

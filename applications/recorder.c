@@ -32,9 +32,10 @@ static void thread_recorder(void* parameter)
     int32_t result;
     rt_err_t rsl = 0;
     recorder_t *recorder = (recorder_t*) parameter;
+    recorder_msg_t *rec_msg;
     do
     {
-        rsl = rt_mq_recv(recorder->msg, recorder->buf, recorder->max_msg_size, 1000);
+        rsl = rt_mb_recv(recorder->mailbox, (void*)&rec_msg, RT_TICK_PER_SECOND);
         if(rsl == -RT_ETIMEOUT)
             continue;
 
@@ -46,9 +47,10 @@ static void thread_recorder(void* parameter)
                 break;
         }
         led_indicate_busy();
-        result = write(recorder->fd, recorder->buf, strlen(recorder->buf));
+        result = write(recorder->fd, rec_msg->msg, rec_msg->size);
         recorder->file_size += result;
         led_indicate_release();
+        free(rec_msg);
 
         // reopen to flush the data
         if(recorder->reopen_after == 0 ||
@@ -60,9 +62,14 @@ static void thread_recorder(void* parameter)
         }
     }while(recorder->is_open || rsl != -RT_ETIMEOUT); // wait for empty
 
+    // clear mq
+    while(rt_mb_recv(recorder->mailbox, (void*)&rec_msg, RT_TICK_PER_SECOND) != -RT_ETIMEOUT)
+        free(rec_msg);
+
+
     if(recorder->fd >= 0)
         close(recorder->fd);
-    rt_mq_delete(recorder->msg);
+    rt_mb_delete(recorder->mailbox);
     memset(recorder, 0, sizeof(recorder_t));
     free(recorder);
 }
@@ -73,7 +80,8 @@ void recorder_delete(recorder_t * recorder)
         return;
     if(recorder->magic != RECORDER_MAGIC) // assert
         return;
-    recorder->is_open = false; // the thread will self-close
+    recorder->is_open = false;
+    // the thread will self-close
 }
 
 // return the num of byte written. error if return value < 0
@@ -86,14 +94,20 @@ int recorder_write(recorder_t * recorder, const char *str)
     if(!recorder->is_open)
         return 0;
 
-    return rt_mq_send(recorder->msg, str, strlen(str)+1); // strlen+1 for '\0'
+    int len = strlen(str);
+    recorder_msg_t * msg = malloc(sizeof(recorder_msg_t) + len);
+    if(!msg)
+        return 0;
+    msg->size = len;
+    strncpy(msg->msg, str, len);
+    return rt_mb_send_wait(recorder->mailbox, msg, RT_TICK_PER_SECOND);
 }
 /* filepath: the path -> it will be overwrited
  * name: a short name < 8 for this recorder
  * msg_size: the maximum size of a message (strlen()+1)
  * reopen_after: >0: the file will reopen to flush the data after the time
  *               =0: the file will be closed immediately after a message.  */
-recorder_t * recorder_create(const char file_path[], const char name[], uint32_t msg_size, rt_tick_t reopen_after_ticks)
+recorder_t * recorder_create(const char file_path[], const char name[], rt_tick_t reopen_after_ticks)
 {
     recorder_t * recorder;
     char tname[16];
@@ -106,35 +120,33 @@ recorder_t * recorder_create(const char file_path[], const char name[], uint32_t
        return NULL;
     }
     LOG_D("Recorder data file created: %s.", file_path);
-    recorder = malloc(sizeof(recorder_t) + msg_size);
+    recorder = malloc(sizeof(recorder_t));
     if(recorder == NULL)
     {
        close(fd);
        return NULL;
     }
 
-    memset(recorder, 0, sizeof(recorder_t) + msg_size);
+    memset(recorder, 0, sizeof(recorder_t));
     recorder->magic = RECORDER_MAGIC;
-    recorder->buf = (char*)recorder + sizeof(recorder_t);
-    recorder->max_msg_size = msg_size;
     recorder->fd = fd;
     recorder->reopen_after = reopen_after_ticks;
     recorder->is_open = true;
     strncpy(recorder->file_path, file_path, 128);
     // message queue as a buffer to store data.
-    recorder->msg = rt_mq_create(tname, recorder->max_msg_size, 8, RT_IPC_FLAG_FIFO);
-    if(!recorder->msg)
+    recorder->mailbox = rt_mb_create(tname, 4, RT_IPC_FLAG_FIFO);
+    if(!recorder->mailbox)
     {
         close(fd); free(recorder);
         return NULL;
     }
     // thread who do the recording.
-    recorder->tid = rt_thread_create(tname, thread_recorder, recorder, 2048, 25, 1000);
+    recorder->tid = rt_thread_create(tname, thread_recorder, recorder, 1500, 25, 1000);
     if(recorder->tid)
         rt_thread_startup(recorder->tid);
     else
     {
-        close(fd); rt_mq_delete(recorder->msg); free(recorder);
+        close(fd); rt_mb_delete(recorder->mailbox); free(recorder);
         return NULL;
     }
 

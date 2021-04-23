@@ -26,13 +26,17 @@ extern "C" {
 
 #define RECORDER_MAGIC (0x787679AE)
 
+// message container.
+typedef struct _recorder_msg_t {
+    int size;
+    char msg[0];
+}recorder_msg_t ;
+
 typedef struct _recorder_t
 {
    uint32_t magic;
    rt_thread_t tid;
-   rt_mq_t msg;
-   char* buf;
-   uint32_t max_msg_size;
+   rt_mailbox_t mailbox;
    bool is_open;
    uint32_t file_size;
    int32_t error_code;
@@ -42,8 +46,7 @@ typedef struct _recorder_t
    rt_tick_t _last_timestamp;   // do not touch
 } recorder_t;
 
-
-recorder_t * recorder_create(const char file_path[], const char name[], uint32_t msg_size, rt_tick_t reopen_after_ticks);
+recorder_t * recorder_create(const char file_path[], const char name[], rt_tick_t reopen_after_ticks);
 
 void recorder_delete(recorder_t * recorder);
 

@@ -303,4 +303,4 @@ int thread_gnss_init()
     rt_thread_startup(tid);
     return RT_EOK;
 }
- INIT_APP_EXPORT(thread_gnss_init);
+INIT_APP_EXPORT(thread_gnss_init);

@@ -327,7 +327,7 @@ void load_default_config(system_config_t* sys)
     strcpy(sys->record.header, "temp,humidity,pressure,bat_volt,light,num_sat,latitude,longitude,windcourse,windspeed,sndspeed");
     sys->record.period = 1000;
     sys->record.max_file_size = 2048*1024; // 4MB
-    strcpy(sys->record.root_path, "/");
+    strcpy(sys->record.data_path, "/");
 
     // log
     sys->log.is_enable = false;
@@ -338,9 +338,10 @@ void load_default_config(system_config_t* sys)
     // mqtt
     sys->mqtt.is_enable = true;
     sys->mqtt.period = 10000;
-    sys->mqtt.baudrate = 115200;
+    sys->mqtt.baudrate = 57600;
     strcpy(sys->mqtt.interface,"lpuart1");
     strcpy(sys->mqtt.module,"esp8266");
+    //strcpy(sys->mqtt.module,"sim800c");
     strcpy(sys->mqtt.wifi_ssid,"");
     strcpy(sys->mqtt.wifi_password,"");
     strcpy(sys->mqtt.mqtt_username,"");
@@ -435,9 +436,9 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
         if(cJSON_IsString(temp) && temp->string != NULL)
             strncpy(sys->record.header, temp->valuestring, MAX_HEADER_LEN);
 
-        temp = cJSON_GetObjectItem(record, "root_path");
+        temp = cJSON_GetObjectItem(record, "data_path");
         if(cJSON_IsString(temp) && temp->string != NULL)
-            strncpy(sys->record.root_path, temp->valuestring, 32);
+            strncpy(sys->record.data_path, temp->valuestring, 32);
     }
 
     // mqtt
@@ -613,7 +614,7 @@ char* create_json_from_config(system_config_t* sys)
     if(!cJSON_AddBoolToObject(record, "enable", sys->record.is_enable)) goto end;
     if(!cJSON_AddBoolToObject(record, "split_file", sys->record.is_split_file)) goto end;
     if(!cJSON_AddStringToObject(record, "header", sys->record.header)) goto end;
-    if(!cJSON_AddStringToObject(record, "root_path", sys->record.root_path)) goto end;
+    if(!cJSON_AddStringToObject(record, "data_path", sys->record.data_path)) goto end;
     if(!cJSON_AddNumberToObject(record, "period", sys->record.period)) goto end;
     if(!cJSON_AddNumberToObject(record, "max_file_size", sys->record.max_file_size)) goto end;
 

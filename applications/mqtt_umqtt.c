@@ -27,11 +27,25 @@
 //#define DBG_LVL DBG_LOG
 #include <rtdbg.h>
 
+#include "umqtt.h"
+#include "umqtt_internal.h"
+
 #include <at_device_esp8266.h>
 #include "wifi_password.h"
 
-#include "umqtt.h"
-#include "umqtt_internal.h"
+#define TEST_WITH_LOCAL_BROKER
+#define LOCAL_URI "tcp://192.168.1.85:1883"
+
+// #define MQTT_URI                "tcp://test.mosquitto.org:1883"
+// #define MQTT_URI                "tcp://mq.tongxinmao.com:18831"
+//#define MQTT_URI                "tcp://broker.emqx.io:1883"
+#define MQTT_URI                "tcp://qbe26b46.en.emqx.cloud:11523"
+
+static int is_started = 0;
+static umqtt_client_t m_umqtt_client = RT_NULL;
+
+
+
 
 #define ESP8266_DEIVCE_NAME     "esp0"
 #define ESP8266_CLIENT_NAME     "lpuart1"
@@ -84,13 +98,6 @@ static int sim800c_device_register(void)
     return -1;
 }
 
-// #define MQTT_URI                "tcp://test.mosquitto.org:1883"
-// #define MQTT_URI                "tcp://mq.tongxinmao.com:18831"
-//#define MQTT_URI                "tcp://broker.emqx.io:1883"
-#define MQTT_URI                "tcp://qbe26b46.en.emqx.cloud:11523"
-
-static int is_started = 0;
-static umqtt_client_t m_umqtt_client = RT_NULL;
 
 static int user_callback(struct umqtt_client *client, enum umqtt_evt event)
 {
@@ -122,9 +129,13 @@ static int mqtt_start()
 {
     struct umqtt_info umqtt_info = { 0 };
 
-    sprintf(uri, "tcp://%s:%d", system_config.mqtt.uri, system_config.mqtt.port);
+#ifdef TEST_WITH_LOCAL_BROKER
     umqtt_info.uri = MQTT_URI;
-    //umqtt_info.uri = uri;
+    umqtt_info.uri = LOCAL_URI;
+#else
+    sprintf(uri, "tcp://%s:%d", system_config.mqtt.uri, system_config.mqtt.port);
+    umqtt_info.uri = uri;
+#endif
 
     if(strlen(system_config.mqtt.mqtt_username) != 0)
     {
@@ -134,8 +145,10 @@ static int mqtt_start()
         umqtt_info.password = mqtt_password;
     }
     else{
+#ifndef TEST_WITH_LOCAL_BROKER
         umqtt_info.user_name = MQTT_USERNAME;
         umqtt_info.password = MQTT_PASSWORD;
+#endif
     }
 
     m_umqtt_client = umqtt_create(&umqtt_info);
@@ -168,14 +181,15 @@ static int mqtt_stop()
 static int is_mqtt_linked ()
 {
     enum umqtt_client_state state = 0;
+    if(!m_umqtt_client)
+        return 0;
     state = umqtt_control(m_umqtt_client, UMQTT_CMD_GET_CLIENT_STA, NULL);
     return state & UMQTT_CS_LINKED;
 }
 
 static int mqtt_publish(const char topic[], const char value[])
 {
-    umqtt_publish(m_umqtt_client, 0, topic, value, strlen(value), 1);
-    return 0;
+    return umqtt_publish(m_umqtt_client, 2, topic, value, strlen(value), 1000);
 }
 
 void thread_mqtt(void* p)
@@ -227,12 +241,16 @@ void thread_mqtt(void* p)
         data_len = get_data_orders(str_buf, ", ", orders, 32);
     }
 
+    // wait for SAL and AT device.
+    rt_thread_mdelay(5000);
+
     // start mqtt
     LOG_I("Start MQTT");
     mqtt_start();
     while(!is_mqtt_linked())
         rt_thread_delay(100);
     LOG_I("MQTT linked");
+
 
     // infinite loop
     while(1)
@@ -246,8 +264,16 @@ void thread_mqtt(void* p)
 //            rt_thread_mdelay(50);
 
             print_data[orders[i]](line);
-            mqtt_publish(data_name[orders[i]], line);
-            rt_thread_mdelay(100); // this must be large enough.
+            if(mqtt_publish(data_name[orders[i]], line) != 0)
+            {
+                // reconnected needed.
+                LOG_E("publish fail");
+                mqtt_stop();
+                rt_thread_delay(1000);
+                mqtt_start();
+                rt_thread_delay(1000);
+            }
+            rt_thread_mdelay(500); // this must be large enough.
         }
     }
 }

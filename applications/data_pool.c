@@ -125,9 +125,9 @@ int print_gyro_z(char*buf) {return sprintf(buf, "%.4f", gyro.unit.z);}
 int print_acc_x(char*buf) {return sprintf(buf, "%.4f", acc.unit.x);}
 int print_acc_y(char*buf) {return sprintf(buf, "%.4f", acc.unit.y);}
 int print_acc_z(char*buf) {return sprintf(buf, "%.4f", acc.unit.z);}
-int print_mag_x(char*buf) {return sprintf(buf, "%f", mag.unit.x);}
-int print_mag_y(char*buf) {return sprintf(buf, "%f", mag.unit.y);}
-int print_mag_z(char*buf) {return sprintf(buf, "%f", mag.unit.z);}
+int print_mag_x(char*buf) {return sprintf(buf, "%d", (int)mag.unit.x);}
+int print_mag_y(char*buf) {return sprintf(buf, "%d", (int)mag.unit.y);}
+int print_mag_z(char*buf) {return sprintf(buf, "%d", (int)mag.unit.z);}
 int print_eular_x(char*buf) {return sprintf(buf, "%.2f", orientation.euler.x);}
 int print_eular_y(char*buf) {return sprintf(buf, "%.2f", orientation.euler.y);}
 int print_eular_z(char*buf) {return sprintf(buf, "%.2f", orientation.euler.z);}
@@ -144,7 +144,7 @@ int print_light_info_b(char*buf){return sprintf(buf, "%d", light_info.B);}
 int print_light_info_ir(char*buf){return sprintf(buf, "%d", light_info.IR);}
 int print_light_info_all(char*buf){return sprintf(buf, "%d", light_info.ALS);}
 int print_rain_level(char*buf){return sprintf(buf, "%d", rain.rain_level);}
-int print_lightning(char*buf){return sprintf(buf, "%f", lightning.distance);}
+int print_lightning(char*buf){return sprintf(buf, "%d", (int)lightning.distance);}
 int print_gnss_latitude(char*buf){return sprintf(buf, "%f", gnss.latitude);}
 int print_gnss_longitude(char*buf){return sprintf(buf, "%f", gnss.longitude);}
 int print_gnss_speed(char*buf){return sprintf(buf, "%.2f", gnss.speed);}
