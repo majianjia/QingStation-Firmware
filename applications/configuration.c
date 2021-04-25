@@ -324,7 +324,7 @@ void load_default_config(system_config_t* sys)
     // recorder
     sys->record.is_enable = true;
     sys->record.is_split_file = true;
-    strcpy(sys->record.header, "temp,humidity,pressure,bat_volt,light,num_sat,latitude,longitude,windcourse,windspeed,sndspeed");
+    strcpy(sys->record.header, "");
     sys->record.period = 1000;
     sys->record.max_file_size = 2048*1024; // 4MB
     strcpy(sys->record.data_path, "/");
@@ -337,7 +337,7 @@ void load_default_config(system_config_t* sys)
 
     // mqtt
     sys->mqtt.is_enable = true;
-    sys->mqtt.period = 10000;
+    sys->mqtt.period = 15000;
     sys->mqtt.baudrate = 57600;
     strcpy(sys->mqtt.interface,"lpuart1");
     strcpy(sys->mqtt.module,"esp8266");

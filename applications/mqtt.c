@@ -42,7 +42,7 @@
 #define MQTT_URI                "tcp://qbe26b46.en.emqx.cloud:11523"
 #define MQTT_PUBTOPIC           "state"
 #define MQTT_SUBTOPIC           "state"
-#define MQTT_WILLMSG            "Disconnected"
+#define MQTT_WILLMSG            "Bye!"
 
 #define ESP8266_DEIVCE_NAME     "esp0"
 #define ESP8266_CLIENT_NAME     "lpuart1"
@@ -337,6 +337,31 @@ MSH_CMD_EXPORT(mqtt_subscribe,  mqtt subscribe topic);
 MSH_CMD_EXPORT(mqtt_unsubscribe, mqtt unsubscribe topic);
 #endif /* FINSH_USING_MSH */
 
+static uint64_t msg_count = 0;
+static float msg_rate = 0;
+static int  mqtt_state(int argc, char **argv)
+{
+    if(argc != 1)
+        rt_kprintf("mqtt_state :print the state of mqtt\n");
+
+    rt_kprintf(" connect timeout: %d\n", client.connect_timeout);
+    rt_kprintf(" keep alive count: %d\n", client.keepalive_count);
+    rt_kprintf(" keep alive counter: %d\n", client.keepalive_counter);
+    rt_kprintf(" keep alive interval: %d\n", client.keepalive_interval);
+    rt_kprintf(" reconnect interval: %d\n", client.reconnect_interval);
+    rt_kprintf(" uri: %s\n", client.uri);
+    rt_kprintf(" user ID: %s", client.condata.clientID);
+    rt_kprintf(" username: %s password: %s\n", client.condata.username.cstring, client.condata.password.cstring);
+    rt_kprintf(" is connected: %d\n", client.isconnected);
+
+    rt_kprintf(" msg sent: %u\n", (uint32_t)msg_count);
+    printf(" msg rate: %.1f/min\n", msg_rate);
+    return 0;
+}
+#ifdef FINSH_USING_MSH
+MSH_CMD_EXPORT(mqtt_state, print the state of mqtt);
+#endif
+
 void thread_mqtt(void* p)
 {
     #define BUFSIZE  64
@@ -350,6 +375,8 @@ void thread_mqtt(void* p)
     bool is_full_update = false;
     mqtt_config_t *cfg;
     int rslt = 0;
+    uint64_t msg_count_last = msg_count;
+    rt_tick_t msg_count_tick;
 
     // wait until system cfg loaded
     // wait and load the configuration
@@ -358,6 +385,7 @@ void thread_mqtt(void* p)
     }while(!is_system_cfg_valid());
     cfg = &system_config.mqtt;
 
+    //cfg->is_enable = false;
     while(!cfg->is_enable)
         rt_thread_delay(1000);
 
@@ -368,7 +396,7 @@ void thread_mqtt(void* p)
 
     config.baud_rate  = 57600;// cfg->baudrate; // do not configer higher than this.
     if(config.baud_rate > 57600)
-        LOG_W("Baudrate[%d], higher than 56700bps cause unstable AT links, please lower it.", cfg->baudrate);
+        LOG_W("Baudrate[%d], higher than 56700bps cause unstable AT links, please lower the baudrate.", cfg->baudrate);
     if(RT_EOK != rt_device_control(serial, RT_DEVICE_CTRL_CONFIG, &config))
         LOG_E("change baudrate %d faile %s failed!", cfg->baudrate, cfg->interface );
     else
@@ -392,7 +420,7 @@ void thread_mqtt(void* p)
     // if the field is empty, then we print all data.
     else{
         strncpy(str_buf, system_config.mqtt.pub_data, 256);
-        data_len = get_data_orders(str_buf, ", ", orders, 32);
+        data_len = get_data_orders(str_buf, ", ", orders, 64);
     }
 
     // wait for SAL and AT device.
@@ -402,17 +430,27 @@ void thread_mqtt(void* p)
     mqtt_start(1, NULL);
     rt_thread_mdelay(2000);
 
-    // infinite loop
+    msg_count_tick = rt_tick_get();
+
+    int period = cfg->period;
     while(1)
     {
-        // avoid unworking loops
-        rt_thread_delay(10);
+        rt_thread_mdelay(2);
+        rt_thread_mdelay(period - rt_tick_get()%period);
 
         // fully update data every minute
-        if((int)(last_full_update - rt_tick_get()) > 60 * RT_TICK_PER_SECOND)
+        if((int)(rt_tick_get() - last_full_update) > 60 * RT_TICK_PER_SECOND)
         {
             last_full_update = rt_tick_get();
             is_full_update = true;
+
+            // message rate
+            if(msg_count != msg_count_last){
+                msg_rate = (float)(msg_count - msg_count_last)*60*RT_TICK_PER_SECOND
+                        / (rt_tick_get() - msg_count_tick);
+                msg_count_last = msg_count;
+                msg_count_tick = rt_tick_get();
+            }
         }
         else
             is_full_update = false;
@@ -445,7 +483,11 @@ void thread_mqtt(void* p)
                     LOG_E("publish fail, wait for reconnect");
                     rt_thread_mdelay(2000);
                 }
+                else {
+                    msg_count++;
+                }
             }
+            rt_thread_delay(1); // looks like it is needed
         }
     }
 }

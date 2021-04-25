@@ -68,9 +68,12 @@ float get_gnss_num_sat(){return gnss.num_sat;}
 float get_gnss_fixed(){return (int)gnss.is_fixed;}
 float get_ane_course(){return anemometer.course;}
 float get_ane_speed(){return anemometer.speed;}
+float get_ane_speed30savg(){return anemometer.speed30savg;}
+float get_ane_speed30smax(){return anemometer.speed30smax;}
 float get_ane_soundspeed(){return anemometer.soundspeed;}
 float get_ane_err_code(){return anemometer.err_code;}
 float get_sys_bat_volt(){return sys.bat_voltage;}
+float get_sys_volt(){return sys.sys_voltage;}
 
 
 /* here we map data to their names,
@@ -112,9 +115,12 @@ float (*get_data[])() = {
         get_gnss_fixed,
         get_ane_course,
         get_ane_speed,
+        get_ane_speed30savg,
+        get_ane_speed30smax,
         get_ane_soundspeed,
         get_ane_err_code,
-        get_sys_bat_volt
+        get_sys_bat_volt,
+        get_sys_volt
 };
 
 /* simple getters */
@@ -154,9 +160,12 @@ int print_gnss_num_sat(char*buf){return sprintf(buf, "%d", gnss.num_sat);}
 int print_gnss_fixed(char*buf){if(gnss.is_fixed) return sprintf(buf, "true"); else return sprintf(buf, "false");}
 int print_ane_course(char*buf){return sprintf(buf, "%.2f", anemometer.course);}
 int print_ane_speed(char*buf){return sprintf(buf, "%.2f", anemometer.speed);}
+int print_ane_speed30savg(char*buf){return sprintf(buf, "%.2f", anemometer.speed30savg);}
+int print_ane_speed30smax(char*buf){return sprintf(buf, "%.2f", anemometer.speed30smax);}
 int print_ane_soundspeed(char*buf){return sprintf(buf, "%.2f", anemometer.soundspeed);}
 int print_ane_err_code(char*buf){return sprintf(buf, "%d", anemometer.err_code);};
 int print_sys_bat_volt(char*buf){return sprintf(buf, "%.3f", sys.bat_voltage);}
+int print_sys_volt(char*buf){return sprintf(buf, "%.3f", sys.sys_voltage);}
 
 /* here we map data to their names,
  * so the log and recorder can be easily define which data we want by simply passing a header */
@@ -197,9 +206,12 @@ int (*print_data[])(char* ) = {
         print_gnss_fixed,
         print_ane_course,
         print_ane_speed,
+        print_ane_speed30savg,
+        print_ane_speed30smax,
         print_ane_soundspeed,
         print_ane_err_code,
-        print_sys_bat_volt
+        print_sys_bat_volt,
+        print_sys_volt
 };
 
 /*  names of data is corresponded to the above data getters. */
@@ -240,9 +252,12 @@ const char data_name[][DATA_NAME_MAX_LEN] = {
         "fixed",
         "windcourse",
         "windspeed",
+        "wind30savg",
+        "wind30smax",
         "sndspeed",
         "ane_err",
-        "bat_volt"
+        "bat_volt",
+        "sys_volt"
 };
 
 const int EXPORT_DATA_SIZE = (sizeof(data_name)/DATA_NAME_MAX_LEN);

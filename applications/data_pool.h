@@ -73,6 +73,8 @@ typedef struct _anemometer_t {
     sensor_info_t info;
     float course;
     float speed;
+    float speed30savg;
+    float speed30smax;
     float soundspeed;
     int err_code;
 } anemometer_t;
@@ -127,6 +129,7 @@ typedef struct _sys_t
 {
     sensor_info_t info;
     float bat_voltage;
+    float sys_voltage;
 }sys_t;
 extern sys_t sys;
 

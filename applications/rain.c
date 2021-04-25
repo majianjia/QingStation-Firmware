@@ -91,8 +91,17 @@ int measure_sys_voltage()
     return get_adc_value(ADC_CHANNEL_4);
 }
 
+float measure_vdda_voltage()
+{
+    uint32_t raw;
+    float volt;
+    raw = get_adc_value(ADC_CHANNEL_VREFINT);
+    volt = (float)VREFINT_CAL_VREF * (*VREFINT_CAL_ADDR) / raw /1000;
+    return volt;
+}
 
-int add_to_buffer(data_buffer_t* data, int32_t new)
+
+static int add_to_buffer(data_buffer_t* data, int32_t new)
 {
     data->buf[data->idx] = new;
     data->idx ++;
@@ -103,7 +112,7 @@ int add_to_buffer(data_buffer_t* data, int32_t new)
     return 0;
 }
 
-float compute_variance(data_buffer_t *data)
+static float compute_variance(data_buffer_t *data)
 {
     float var = 0;
     float avg = 0;
@@ -126,6 +135,7 @@ void thread_rain(void* parameters)
     sensor_config_t * cfg;
     uint16_t rain_raw;
     uint16_t sys_vol_raw;
+    float vdda;
 
     rt_pin_mode(IR_LED_PIN, PIN_MODE_OUTPUT);
     rt_pin_write(IR_LED_PIN, GPIO_PIN_RESET);
@@ -168,8 +178,12 @@ void thread_rain(void* parameters)
 
         // temporary place the system voltage sending here
         // since our ADC is not using RTT's framework, so not thread safe yet.
+        float volt;
+        vdda = measure_vdda_voltage();
         sys_vol_raw = measure_sys_voltage();
-        sys.bat_voltage = sys_vol_raw / 4096.f * 2.f * 3.3f;
+        volt = sys_vol_raw / 4095.f * vdda * 2;
+        sys.bat_voltage = volt * 0.1f + sys.bat_voltage * 0.9f; // simple RC filter.
+        sys.sys_voltage = vdda;
         data_updated(&sys.info);
     }
 }

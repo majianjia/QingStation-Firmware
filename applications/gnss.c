@@ -271,8 +271,9 @@ void thread_gnss(void* p)
                     gnss.speed = minmea_tofloat(&rmc_frame.speed);
                     gnss.num_sat = gga_frame.satellites_tracked;
                     gnss.is_fixed = rmc_frame.valid;
-
                 }
+                else if (id == MINMEA_SENTENCE_GGA)
+                    gnss.altitude = minmea_tofloat(&gga_frame.altitude);
 
                 if(is_echo)
                     printf(line);

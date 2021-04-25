@@ -813,6 +813,41 @@ int calibration2(float* static_zero_cross, float* echo_shape, float* sig,
 }
 
 
+//borrow from rain.c
+typedef struct _ringbuff_t {
+    float *buf;
+    int32_t idx;
+    int32_t size;
+} ringbuffer_t;
+
+static float ringbuffer_add(ringbuffer_t* data, float new)
+{
+    data->buf[data->idx] = new;
+    data->idx ++;
+    if(data->idx >= data->size)
+        data->idx = 0;
+    return 0;
+}
+
+static float ringbuffer_average(ringbuffer_t *data)
+{
+    float avg = 0;
+    for(int i=0; i<data->size; i++)
+        avg += data->buf[i];
+    avg /= data->size;
+    return avg;
+}
+
+static float ringbuffer_max(ringbuffer_t *data)
+{
+    float max = data->buf[0];
+    for(int i=1; i<data->size; i++)
+        max = MAX(max, data->buf[i]);
+    return max;
+}
+
+
+
 bool is_ane_log = false;
 void anemometer_info(int argc, void*argv){
     is_ane_log = !is_ane_log;
@@ -928,6 +963,13 @@ void thread_anemometer(void* parameters)
 
     LOG_I("Propagation time:%.2f, est offset: %.2f, %.2f, %.2f, %.2f",
             T, pulse_offset[0], pulse_offset[1],pulse_offset[2],pulse_offset[3]);
+
+    // wind history buffer
+    ringbuffer_t wind_hist;
+    wind_hist.idx = 0;
+    wind_hist.size = cfg->data_period *30 / 1000;
+    wind_hist.buf = malloc(sizeof(float) * wind_hist.size); // data for 30s
+    memset(wind_hist.buf, 0, sizeof(float) * wind_hist.size);
 
     // main body
     rt_tick_t period = cfg->data_period / cfg->oversampling;
@@ -1101,6 +1143,11 @@ void thread_anemometer(void* parameters)
                 anemometer.course = atan2f(-ew_v_acc, -ns_v_acc)/3.1415926*180 + 180;
             else
                 anemometer.course = -1;
+
+            ringbuffer_add(&wind_hist, anemometer.speed);
+            anemometer.speed30savg = ringbuffer_average(&wind_hist);
+            anemometer.speed30smax = ringbuffer_max(&wind_hist);
+
             data_updated(&anemometer.info);
 
             // reset

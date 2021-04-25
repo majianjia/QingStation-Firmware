@@ -26,7 +26,7 @@
 #include "recorder.h"
 #include "time.h"
 
-recorder_t * new_file(char* line, int max_msg_size)
+recorder_t * new_file(char* line)
 {
     time_t timep;
     char filepath[128];
@@ -66,7 +66,7 @@ void thread_record(void* parameters)
     }
 
     // create one
-    recorder_t* recorder = new_file(line, MSG_SIZE);
+    recorder_t* recorder = new_file(line);
     // copy for us to destroy :p
     // get what data do we want.
     strncpy(line, system_config.record.header, MSG_SIZE);
@@ -119,13 +119,13 @@ void thread_record(void* parameters)
         if(system_config.record.is_split_file &&
                 recorder->file_size >= system_config.record.max_file_size){
             recorder_delete(recorder);
-            recorder = new_file(line, MSG_SIZE);
+            recorder = new_file(line);
             // write header
             recorder_write(recorder, "timestamp");
             for(int i=1; i<data_len; i++)
             {
-                sprintf(line, ",%s",data_name[i]);
-                recorder_write(recorder, data_name[i]);
+                sprintf(line, ",%s",orders[i]);
+                recorder_write(recorder, line);
             }
             recorder_write(recorder, "\n");
         }
