@@ -67,22 +67,21 @@ void thread_record(void* parameters)
 
     // create one
     recorder_t* recorder = new_file(line);
-    // copy for us to destroy :p
-    // get what data do we want.
-    strncpy(line, system_config.record.header, MSG_SIZE);
 
     // find out the data to be export (publish)
+    // if the field is empty, then we print all data.
     if(strlen(system_config.record.header) == 0)
     {
         data_len = EXPORT_DATA_SIZE-1; // data 0 is "unknown"
         for(int i=0; i<data_len; i++)
             orders[i] = i+1;
     }
-    // if the field is empty, then we print all data.
+    // not empty, use it.
     else{
+        // copy for us to destroy :p
+        // get what data do we want.
         strncpy(line, system_config.record.header, MSG_SIZE);
         data_len = get_data_orders(line, ", ", orders, 64);
-
     }
     // write header
     recorder_write(recorder, "timestamp");
@@ -117,14 +116,15 @@ void thread_record(void* parameters)
 
         // new file when needed.
         if(system_config.record.is_split_file &&
-                recorder->file_size >= system_config.record.max_file_size){
-            recorder_delete(recorder);
+                recorder->file_size >= system_config.record.max_file_size)
+        {
+            recorder_delete_wait(recorder);
             recorder = new_file(line);
             // write header
             recorder_write(recorder, "timestamp");
-            for(int i=1; i<data_len; i++)
+            for(int i=0; i<data_len; i++)
             {
-                sprintf(line, ",%s",orders[i]);
+                sprintf(line, ",%s",data_name[orders[i]]);
                 recorder_write(recorder, line);
             }
             recorder_write(recorder, "\n");

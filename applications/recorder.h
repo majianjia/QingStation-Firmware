@@ -49,6 +49,7 @@ typedef struct _recorder_t
 recorder_t * recorder_create(const char file_path[], const char name[], rt_tick_t reopen_after_ticks);
 
 void recorder_delete(recorder_t * recorder);
+void recorder_delete_wait(recorder_t * recorder);
 
 // return the num of byte written. errer if return value < 0
 int recorder_write(recorder_t * recorder, const char *str);

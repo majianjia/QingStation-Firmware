@@ -63,15 +63,27 @@ static void thread_recorder(void* parameter)
     }while(recorder->is_open || rsl != -RT_ETIMEOUT); // wait for empty
 
     // clear mq
-    while(rt_mb_recv(recorder->mailbox, (void*)&rec_msg, RT_TICK_PER_SECOND) != -RT_ETIMEOUT)
+    while(rt_mb_recv(recorder->mailbox, (void*)&rec_msg, 1) != -RT_ETIMEOUT)
         free(rec_msg);
-
 
     if(recorder->fd >= 0)
         close(recorder->fd);
     rt_mb_delete(recorder->mailbox);
-    memset(recorder, 0, sizeof(recorder_t));
+    memset(recorder, 0, sizeof(recorder_t)); // destroy magic word
     free(recorder);
+}
+
+
+void recorder_delete_wait(recorder_t * recorder)
+{
+    if(recorder == NULL)
+        return;
+    if(recorder->magic != RECORDER_MAGIC) // assert
+        return;
+    recorder->is_open = false;
+    // wait until the handle is destroyed.
+    while(recorder->magic != RECORDER_MAGIC)
+        rt_thread_delay(10);
 }
 
 void recorder_delete(recorder_t * recorder)
@@ -81,23 +93,23 @@ void recorder_delete(recorder_t * recorder)
     if(recorder->magic != RECORDER_MAGIC) // assert
         return;
     recorder->is_open = false;
-    // the thread will self-close
+    // the thread will self-close later
 }
 
 // return the num of byte written. error if return value < 0
 int recorder_write(recorder_t * recorder, const char *str)
 {
     if(recorder == NULL)
-        return 0;
+        return -1;
     if(recorder->magic != RECORDER_MAGIC) // assert
-        return 0;
+        return -1;
     if(!recorder->is_open)
-        return 0;
+        return -1;
 
-    int len = strlen(str);
+    int len = strlen(str); // discard '\0'
     recorder_msg_t * msg = malloc(sizeof(recorder_msg_t) + len);
     if(!msg)
-        return 0;
+        return -1;
     msg->size = len;
     strncpy(msg->msg, str, len);
     return rt_mb_send_wait(recorder->mailbox, msg, RT_TICK_PER_SECOND);

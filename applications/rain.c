@@ -80,7 +80,7 @@ int measure_rain()
 {
     uint16_t adc;
     rt_pin_write(IR_LED_PIN, GPIO_PIN_SET);
-    rt_thread_mdelay(1);
+    rt_thread_mdelay(5);                // minimum 3 to be stable
     adc = get_adc_value(ADC_CHANNEL_6);
     rt_pin_write(IR_LED_PIN, GPIO_PIN_RESET);
     return adc;
@@ -150,7 +150,7 @@ void thread_rain(void* parameters)
     // init the data
     int len = cfg->oversampling * 10 *cfg->data_period / 1000; // 10 second windows
     memset(&rain_data, 0, sizeof(data_buffer_t));
-    rain_data.buf = malloc(len*2);
+    rain_data.buf = malloc(len * sizeof(uint16_t));
     rain_data.size = len;
     if(rain_data.buf == NULL){
         LOG_E("no memory for rain sensor data buffer, require %d bytes", len*2);

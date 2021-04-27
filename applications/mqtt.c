@@ -46,7 +46,7 @@
 
 #define ESP8266_DEIVCE_NAME     "esp0"
 #define ESP8266_CLIENT_NAME     "lpuart1"
-#define ESP8266_RECV_BUFF_LEN    (512)
+#define ESP8266_RECV_BUFF_LEN    (4096)
 
 static struct at_device_esp8266 esp0 = {0};
 

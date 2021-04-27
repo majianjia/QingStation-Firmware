@@ -1050,6 +1050,7 @@ void thread_anemometer(void* parameters)
 //            else if(!peak_off){
 //                update_shape(ref_shape[idx], shape, 0.02);
 //            }
+
             // finally we can locate the main peak, despite the peak is distorted
             if(is_ane_log && abs(peak_off) > 2){ // small offset dose not considered as error
                 int buf_idx = 0;
@@ -1082,11 +1083,11 @@ void thread_anemometer(void* parameters)
             goto cycle_end;
         }
 
-        //convert 'us' to 'second'
+        // convert us to s
         dt[NORTH] /= 1000000.f;
-        dt[EAST]  /= 1000000.f;
         dt[SOUTH] /= 1000000.f;
-        dt[WEST]  /= 1000000.f;
+        dt[EAST] /= 1000000.f;
+        dt[WEST] /= 1000000.f;
 
         // wind speed.
         ns_v = height / (sin_a * cos_a) * (1.0f/dt[NORTH] - 1.0f/dt[SOUTH]);
@@ -1118,7 +1119,7 @@ void thread_anemometer(void* parameters)
         est_c = speed_of_sound_from_T(air_info.temperature);
 
         // final check, if wind speed abnormal, then resample
-        if(fabs(est_c - c) > 20 || fabs(c - c_history) > 2)
+        if(fabs(est_c - c) > 10 || fabs(c - c_history) > 5)
         {
             err = ERR_WINDSPEED;
             err_count++;
@@ -1169,7 +1170,7 @@ cycle_end:
         // err code
         anemometer.err_code = err;
 
-        // dump last adc measurement if error.
+        // dump last adc masurement if error.
         if(err != NORMAL)
         {
             // allow only one dump per second.
