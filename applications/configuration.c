@@ -256,6 +256,50 @@ void anemo_load_json(sensor_config_t* config, cJSON* json)
 }
 
 
+void rain_create_json(sensor_config_t* config, cJSON* json)
+{
+    rain_config_t * rain;
+    if(!config->user_data)
+        return;
+    rain = config->user_data;
+
+    cJSON * temp = cJSON_CreateObject();
+    if(!temp) return;
+    if(!cJSON_AddItemToObject(json, "settings", temp)) return;
+
+    if(!cJSON_AddNumberToObject(temp, "light", rain->light)) return;
+    if(!cJSON_AddNumberToObject(temp, "moderate", rain->moderate)) return;
+    if(!cJSON_AddNumberToObject(temp, "heavy", rain->heavy)) return;
+    if(!cJSON_AddNumberToObject(temp, "violent", rain->violent)) return;
+}
+
+void rain_load_json(sensor_config_t* config, cJSON* json)
+{
+    rain_config_t * rain;
+    if(!config->user_data){
+        config->user_data = malloc(sizeof(bmx160_config_t));
+        memset(config->user_data, 0, sizeof(bmx160_config_t));
+    }
+    rain = config->user_data;
+
+    cJSON * temp;
+    json = cJSON_GetObjectItem(json, "settings");
+    if(!cJSON_IsObject(json))
+        return;
+    temp = cJSON_GetObjectItem(json, "light");
+    if(cJSON_IsNumber(temp))
+        rain->light = temp->valueint;
+    temp = cJSON_GetObjectItem(json, "moderate");
+    if(cJSON_IsNumber(temp))
+        rain->moderate = temp->valueint;
+    temp = cJSON_GetObjectItem(json, "heavy");
+    if(cJSON_IsNumber(temp))
+        rain->heavy = temp->valueint;
+    temp = cJSON_GetObjectItem(json, "violent");
+    if(cJSON_IsNumber(temp))
+        rain->violent = temp->valueint;
+}
+
 
 void load_default_config(system_config_t* sys)
 {
@@ -298,9 +342,9 @@ void load_default_config(system_config_t* sys)
 
     // analog, channel is fixed on board. setting doesnt matter.
     s = new_sensor("Anemometer", "adc_ch5");
+    if(s == NULL) return;
     s->data_period = 1000;
     s->oversampling = 2;
-    if(s == NULL) return;
     anemometer_config_t* ane_cfg = malloc(sizeof(anemometer_config_t));
     if(ane_cfg == NULL) return;
     memset(ane_cfg, 0, sizeof(anemometer_config_t));
@@ -320,13 +364,24 @@ void load_default_config(system_config_t* sys)
     if(s == NULL) return;
     s->oversampling = 10;
     add_sensor(sys->sensors, s);
+    rain_config_t* rain_cfg = malloc(sizeof(rain_config_t));
+    if(rain_cfg == NULL) return;
+    memset(rain_cfg, 0, sizeof(rain_config_t));
+    rain_cfg->light     = 10;
+    rain_cfg->moderate  = 70;
+    rain_cfg->heavy     = 200;
+    rain_cfg->violent   = 500;
+    s->user_data = rain_cfg;
+    s->create_json = rain_create_json;
+    s->load_json = rain_load_json;
+    add_sensor(sys->sensors, s);
 
     // recorder
     sys->record.is_enable = true;
     sys->record.is_split_file = true;
     strcpy(sys->record.header, "");
     sys->record.period = 1000;
-    sys->record.max_file_size = 2048*1024; // 4MB
+    sys->record.max_file_size = 4096*1024; // 4MB
     strcpy(sys->record.data_path, "/");
 
     // log
@@ -347,6 +402,7 @@ void load_default_config(system_config_t* sys)
     strcpy(sys->mqtt.mqtt_username,"");
     strcpy(sys->mqtt.mqtt_password,"");
     strcpy(sys->mqtt.pub_data, ""); // empty means every data is published.
+    strcpy(sys->mqtt.topic_prefix, ""); // allows you to add a super topic before data.
     strcpy(sys->mqtt.uri, "broker.emqx.io");
     sys->mqtt.port = 1883;
 
@@ -438,7 +494,7 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
 
         temp = cJSON_GetObjectItem(record, "data_path");
         if(cJSON_IsString(temp) && temp->string != NULL)
-            strncpy(sys->record.data_path, temp->valuestring, 32);
+            strncpy(sys->record.data_path, temp->valuestring, sizeof(sys->record.data_path));
     }
 
     // mqtt
@@ -493,6 +549,10 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
         temp = cJSON_GetObjectItem(mqtt, "pub_data");
         if(cJSON_IsString(temp) && temp->string != NULL)
             strncpy(sys->mqtt.pub_data, temp->valuestring, sizeof(sys->mqtt.pub_data));
+
+        temp = cJSON_GetObjectItem(mqtt, "topic_prefix");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->mqtt.topic_prefix, temp->valuestring, sizeof(sys->mqtt.topic_prefix));
     }
 
     // gnss
@@ -556,7 +616,6 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
 
             // store this sensor.
             LOG_I("read config for sensor %s", sensor->string);
-            //rt_thread_delay(100);
             if(sys->sensors) // the following
                 add_sensor(sys->sensors, sensor_cfg);
             else // the first
@@ -641,6 +700,7 @@ char* create_json_from_config(system_config_t* sys)
     if(!cJSON_AddStringToObject(mqtt, "uri", sys->mqtt.uri)) goto end;
     if(!cJSON_AddNumberToObject(mqtt, "port", sys->mqtt.port)) goto end;
     if(!cJSON_AddStringToObject(mqtt, "pub_data", sys->mqtt.pub_data)) goto end;
+    if(!cJSON_AddStringToObject(mqtt, "topic_prefix", sys->mqtt.topic_prefix)) goto end;
 
     gnss = cJSON_CreateObject();
     if(!gnss) goto end;

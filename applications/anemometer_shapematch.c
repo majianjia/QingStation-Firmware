@@ -80,11 +80,11 @@ float sig_level[4] = {0};   // signal level for each channels
 #define NUM_ZC_AVG      (6) // number of zerocrossing to calculate the beam location. better to be even number
 
 // to define the shape of to identify the echo beam
-#define PEAK_LEFT   (6)
+#define PEAK_LEFT   (8)
 #define PEAK_MAIN   PEAK_LEFT
-#define PEAK_RIGHT  (6)
+#define PEAK_RIGHT  (8)
 #define PEAK_LEN    (PEAK_LEFT + PEAK_RIGHT + 1)
-#define PEAK_ZC     (3)  // start from which peak to identify the zero crossing. (2=3rd)
+#define PEAK_ZC     (5)  // start from which peak to identify the zero crossing. (2=3rd)
 
 #define IS_SIGN_DIFF(a, b) (!(signbit(a) == signbit(b))) // this cover 0, but have fixed width
 

@@ -398,9 +398,9 @@ void thread_mqtt(void* p)
     if(config.baud_rate > 57600)
         LOG_W("Baudrate[%d], higher than 56700bps cause unstable AT links, please lower the baudrate.", cfg->baudrate);
     if(RT_EOK != rt_device_control(serial, RT_DEVICE_CTRL_CONFIG, &config))
-        LOG_E("change baudrate %d faile %s failed!", cfg->baudrate, cfg->interface );
+        LOG_E("change baudrate %d, %s failed!", cfg->baudrate, cfg->interface );
     else
-        LOG_I("MQTT set to uart: %s, baudrate is set to %bsp", cfg->interface, cfg->baudrate);
+        LOG_I("MQTT set to uart: %s, baudrate is set to %bps", cfg->interface, cfg->baudrate);
 
     LOG_I("Setting up MQTT AT module: %s", system_config.mqtt.module);
     if(!strcasecmp("esp8266", system_config.mqtt.module))
@@ -466,16 +466,11 @@ void thread_mqtt(void* p)
                    continue;
             }
 
-//            #define PREFIX "qing/"
-//            snprintf(topic, sizeof(topic), "%s%s", PREFIX, data_name[i]);
-//            print_data[i](line);
-//            mqtt_publish(topic, line);
-//            rt_thread_mdelay(50);
-
             if(is_connected)
             {
+                snprintf(topic, sizeof(topic), "%s%s", cfg->topic_prefix, data_name[orders[i]]);
                 print_data[orders[i]](line);
-                rslt = mqtt_publish_data(data_name[orders[i]], line);
+                rslt = mqtt_publish_data(topic, line);
                 if(rslt != 0)
                 {
                     // reconnected needed.

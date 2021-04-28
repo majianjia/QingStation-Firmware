@@ -29,12 +29,14 @@ enum{
     NORMAL = 0,
     ERR_MSE_NAN = 1,
     ERR_SHAPE_MISMATCH = 2,
-    ERR_WINDSPEED = 3
+    ERR_MISALIGN = 3,       // one of the channel has capture misaligned data.
+    ERR_WINDSPEED = 4
 } ERR_CODE;
 
 // pulse generation/modulation, pulse are pwm with 0~99 = 0%~100%
-#define H 99
+#define H 95
 #define L 0
+#define X 49
 
 // Double rate (80k), to control the +1 or −1 phase
 // this is a bit tricky -- this is the only way to make it work.
@@ -44,7 +46,9 @@ enum{
 // M = modulation frequency
 // B = barker code type
 
-const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L, L, H}; // ++++++---++-+
+
+const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, L, H, L, H, L, L, X, L, X, L, X, L}; // xx++++++---
+//const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L, L, H}; // ++++++---++-+
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L, L, H}; // +++++---++-+
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L}; // +++++---++ // best for single peak method
 
@@ -80,11 +84,11 @@ float sig_level[4] = {0};   // signal level for each channels
 #define NUM_ZC_AVG      (6) // number of zerocrossing to calculate the beam location. better to be even number
 
 // to define the shape of to identify the echo beam
-#define PEAK_LEFT   (6)
+#define PEAK_LEFT   (8)
 #define PEAK_MAIN   PEAK_LEFT
-#define PEAK_RIGHT  (6)
+#define PEAK_RIGHT  (8)
 #define PEAK_LEN    (PEAK_LEFT + PEAK_RIGHT + 1)
-#define PEAK_ZC     (3)  // start from which peak to identify the zero crossing. (2=3rd)
+#define PEAK_ZC     (5)  // start from which peak to identify the zero crossing. (2=3rd)
 
 #define IS_SIGN_DIFF(a, b) (!(signbit(a) == signbit(b))) // this cover 0, but have fixed width
 
@@ -1026,7 +1030,7 @@ void thread_anemometer(void* parameters)
             capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, shape, PEAK_LEFT, PEAK_RIGHT, 0.2);
 
             // use peak to find the offset if there is any on the main peak
-            #define MSE_RANGE 9
+            #define MSE_RANGE 13
             float mse[MSE_RANGE];
             int mini_mse;
             int peak_off;
@@ -1079,6 +1083,16 @@ void thread_anemometer(void* parameters)
             err_count++;
             if(is_ane_log)
                 LOG_W("Error count updated: %d, err_code:%d", err_count, err);
+            goto cycle_end;
+        }
+
+        // check if the
+        if(abs(abs(dt[NORTH] - T) - abs(dt[SOUTH] - T)) > 12 ||
+           abs(abs(dt[EAST] - T) - abs(dt[WEST] - T)) > 12)
+        {
+            err = ERR_MISALIGN;
+            if(is_ane_log)
+                LOG_W("misaligned, dt measure distance too large: %.1f, %.1f, %.1f, %.1f", dt[NORTH], dt[EAST], dt[SOUTH], dt[WEST]);
             goto cycle_end;
         }
 
@@ -1173,7 +1187,7 @@ cycle_end:
         if(err != NORMAL)
         {
             // allow only one dump per second.
-            if(rt_tick_get() - last_dump > RT_TICK_PER_SECOND &&
+            if((int)(rt_tick_get() - last_dump) > RT_TICK_PER_SECOND &&
                     ane_cfg->is_dump_error){
                 LOG_W("Dumping error, error code : %d", err);
                 last_dump = rt_tick_get();

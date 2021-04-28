@@ -148,9 +148,6 @@ int detect_bitrate(rt_device_t serial, uint32_t num_of_try)
     return -1;
 }
 
-
-
-
 void gnss_enter_standby(rt_device_t serial, int sec)
 {
     //$PCAS12,slp*CS<CR><LF>
@@ -193,9 +190,17 @@ void thread_gnss(void* p)
     char ch;
     int gnss_bitrate = 0;
     struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
+    gnss_config_t *cfg = NULL;
 
-    rt_thread_mdelay(3000);
-    rt_device_t serial = rt_device_find(system_config.gnss.interface);
+    // wait until system cfg loaded
+    // wait and load the configuration
+    do{
+        rt_thread_delay(100);
+    }while(!is_system_cfg_valid());
+    cfg = &system_config.gnss;
+
+    rt_thread_mdelay(1000);
+    rt_device_t serial = rt_device_find(cfg->interface);
     rt_device_set_rx_indicate(serial, uart_input);
     rt_device_open(serial, RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
 
@@ -203,16 +208,16 @@ void thread_gnss(void* p)
     gnss_bitrate = detect_bitrate(serial, 30);
     if(gnss_bitrate == -1)
     {
-        LOG_E("Cannot detect gnss model bitrate, uart will be set to default %dbps", system_config.gnss.baudrate);
-        config.baud_rate  =  system_config.gnss.baudrate;
+        LOG_E("Cannot detect gnss module baudrate, uart will be set to default %dbps", cfg->baudrate);
+        config.baud_rate  =  cfg->baudrate;
         if(RT_EOK != rt_device_control(serial, RT_DEVICE_CTRL_CONFIG, &config))
              LOG_E("change bitrate failed!\n");
     }
     // the detected bitrate is different than the system setting
-    else if(gnss_bitrate != system_config.gnss.baudrate)
+    else if(gnss_bitrate != cfg->baudrate)
     {
-        LOG_I("Set gnss model bitrate to %dbps per configuration file", system_config.gnss.baudrate);
-        gnss_bitrate = system_config.gnss.baudrate;
+        LOG_I("Set gnss model bitrate to %dbps per configuration file", cfg->baudrate);
+        gnss_bitrate = cfg->baudrate;
         gnss_set_bitrate(serial, gnss_bitrate);
         config.baud_rate  =  gnss_bitrate;
         if(RT_EOK != rt_device_control(serial, RT_DEVICE_CTRL_CONFIG, &config))
@@ -225,9 +230,9 @@ void thread_gnss(void* p)
     case 500:
     case 200:
     case 250:
-    case 100: gnss_set_rate(serial, 1000/system_config.gnss.period); break;// this is working
+    case 100: gnss_set_rate(serial, 1000/cfg->period); break;// this is working
     default:
-        LOG_E("Does not support period %d ms (%d) Hz",system_config.gnss.period, 1000/system_config.gnss.period);
+        LOG_E("Does not support period %d ms (%d Hz)",cfg->period, 1000/cfg->baudrate);
     }
 
     gnss_enter_standby(serial, 25); //test, doesnt work.

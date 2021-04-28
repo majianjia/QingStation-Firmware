@@ -16,6 +16,7 @@
 static struct rt_memheap system_heap;
 #endif
 
+
 RT_WEAK void rt_hw_board_init()
 {
     extern void hw_board_init(char *clock_src, int32_t clock_src_freq, int32_t clock_target_freq);

@@ -133,6 +133,7 @@ static float compute_variance(data_buffer_t *data)
 void thread_rain(void* parameters)
 {
     sensor_config_t * cfg;
+    rain_config_t * rain_cfg;
     uint16_t rain_raw;
     uint16_t sys_vol_raw;
     float vdda;
@@ -146,6 +147,7 @@ void thread_rain(void* parameters)
         rt_thread_delay(100);
         cfg = get_sensor_config("Rain");
     }while(cfg == NULL && !is_system_cfg_valid());
+    rain_cfg = cfg->user_data;
 
     // init the data
     int len = cfg->oversampling * 10 *cfg->data_period / 1000; // 10 second windows
@@ -172,6 +174,18 @@ void thread_rain(void* parameters)
         if(rain_data.is_full)
         {
             rain.rain_var = compute_variance(&rain_data);
+
+            int level = 0;
+            if(rain.rain_var >= rain_cfg->light)
+                level = 1;
+            if(rain.rain_var >= rain_cfg->moderate)
+                level = 2;
+            if(rain.rain_var >= rain_cfg->heavy)
+                level = 3;
+            if(rain.rain_var >= rain_cfg->violent)
+                level = 4;
+            rain.rain_level = level;
+
             data_updated(&rain.info);
         }
         //printf("measurement:%d, rain_var: %f\n", rain_raw, rain.rain_var);

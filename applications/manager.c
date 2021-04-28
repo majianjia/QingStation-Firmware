@@ -28,6 +28,7 @@
 #include <manager.h>
 #include "configuration.h"
 #include "recorder.h"
+#include "pm.h"
 
 #define DBG_TAG "mngr"
 #define DBG_LVL DBG_LOG
@@ -36,6 +37,8 @@
 void thread_manager(void* parameters)
 {
     rt_thread_delay(3000);
+    rt_pm_request(PM_SLEEP_MODE_IDLE); // stop cpu when in idle
+    rt_pm_release(PM_SLEEP_MODE_NONE); // release the default none sleep mode.
 
     while(1)
     {

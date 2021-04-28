@@ -75,6 +75,15 @@ typedef struct _anemometer_config_t
     bool is_dump_error; // save error
 } anemometer_config_t;
 
+typedef struct _rain_config_t
+{
+    // intensity of rain fall. threshold of variance.
+    int light;
+    int moderate;
+    int heavy;
+    int violent;
+} rain_config_t;
+
 
 typedef struct _mqtt_config_t
 {
@@ -86,6 +95,7 @@ typedef struct _mqtt_config_t
     char mqtt_username[16];
     char mqtt_password[32];
     char pub_data[MAX_HEADER_LEN];  // select the data to publish
+    char topic_prefix[32];          // prefix of the topic (e.g. "qing/" will make data topics to be a sub topic under 'qing')
     char uri[64];       // uri
     int port;           // port
     int period;         // update period in ms
