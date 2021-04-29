@@ -400,7 +400,7 @@ void thread_mqtt(void* p)
     if(RT_EOK != rt_device_control(serial, RT_DEVICE_CTRL_CONFIG, &config))
         LOG_E("change baudrate %d, %s failed!", cfg->baudrate, cfg->interface );
     else
-        LOG_I("MQTT set to uart: %s, baudrate is set to %bps", cfg->interface, cfg->baudrate);
+        LOG_I("MQTT set to uart: %s, baudrate is set to %dbps", cfg->interface, cfg->baudrate);
 
     LOG_I("Setting up MQTT AT module: %s", system_config.mqtt.module);
     if(!strcasecmp("esp8266", system_config.mqtt.module))
