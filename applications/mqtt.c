@@ -28,6 +28,7 @@
 #include <rtdbg.h>
 
 #include "mqtt_client.h"
+#include "mqtt_ota.h"
 
 #include <at_device_esp8266.h>
 #include <at_device_sim800c.h>
@@ -46,7 +47,7 @@
 
 #define ESP8266_DEIVCE_NAME     "esp0"
 #define ESP8266_CLIENT_NAME     "lpuart1"
-#define ESP8266_RECV_BUFF_LEN    (4096)
+#define ESP8266_RECV_BUFF_LEN    (512)
 
 static struct at_device_esp8266 esp0 = {0};
 
@@ -127,6 +128,12 @@ static void mqtt_sub_callback(mqtt_client *c, message_data *msg_data)
                msg_data->message->payloadlen,
                (char *)msg_data->message->payload);
 }
+
+static void mqtt_ota_callback(mqtt_client *c, message_data *msg_data)
+{
+    mqtt_ota_receive_callback(msg_data->message->payload, msg_data->message->payloadlen);
+}
+
 
 static void mqtt_sub_default_callback(mqtt_client *c, message_data *msg_data)
 {
@@ -267,6 +274,11 @@ static int mqtt_start(int argc, char **argv)
         client.message_handlers[0].callback = mqtt_sub_callback;
         client.message_handlers[0].qos = QOS1;
 
+        /* for OTA */
+        client.message_handlers[1].topicFilter = rt_strdup(MQTT_OTA_DOWNSTREAM);
+        client.message_handlers[1].callback = mqtt_ota_callback;
+        client.message_handlers[1].qos = QOS0;
+
         /* set default subscribe event callback */
         client.default_message_handlers = mqtt_sub_default_callback;
     }
@@ -324,9 +336,9 @@ static int mqtt_publish(int argc, char **argv)
     return 0;
 }
 
-static int mqtt_publish_data(const char topic[], char value[])
+int mqtt_publish_data(const char topic[], char value[], int qs)
 {
-    return paho_mqtt_publish(&client, 0, topic, value, strlen(value));;
+    return paho_mqtt_publish(&client, qs, topic, value, strlen(value));
 }
 
 #ifdef FINSH_USING_MSH
@@ -470,7 +482,7 @@ void thread_mqtt(void* p)
             {
                 snprintf(topic, sizeof(topic), "%s%s", cfg->topic_prefix, data_name[orders[i]]);
                 print_data[orders[i]](line);
-                rslt = mqtt_publish_data(topic, line);
+                rslt = mqtt_publish_data(topic, line, 0);
                 if(rslt != 0)
                 {
                     // reconnected needed.

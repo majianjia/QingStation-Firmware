@@ -170,25 +170,26 @@ void thread_rain(void* parameters)
 
         // calculate the variance
         rain_raw = measure_rain();
+        rain.raw = rain_raw;
         add_to_buffer(&rain_data, rain_raw);
         if(rain_data.is_full)
         {
-            rain.rain_var = compute_variance(&rain_data);
+            rain.var = compute_variance(&rain_data);
 
             int level = 0;
-            if(rain.rain_var >= rain_cfg->light)
+            if(rain.var >= rain_cfg->light)
                 level = 1;
-            if(rain.rain_var >= rain_cfg->moderate)
+            if(rain.var >= rain_cfg->moderate)
                 level = 2;
-            if(rain.rain_var >= rain_cfg->heavy)
+            if(rain.var >= rain_cfg->heavy)
                 level = 3;
-            if(rain.rain_var >= rain_cfg->violent)
+            if(rain.var >= rain_cfg->violent)
                 level = 4;
-            rain.rain_level = level;
+            rain.level = level;
 
             data_updated(&rain.info);
         }
-        //printf("measurement:%d, rain_var: %f\n", rain_raw, rain.rain_var);
+        //printf("measurement:%d, rain_var: %f\n", rain_raw, rain.var);
 
         // temporary place the system voltage sending here
         // since our ADC is not using RTT's framework, so not thread safe yet.

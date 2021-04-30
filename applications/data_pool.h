@@ -100,8 +100,9 @@ extern light_info_t light_info;
 
 typedef struct _rain_t {
     sensor_info_t info;
-    int rain_level;
-    float rain_var;
+    int level;
+    int raw;
+    float var;
 }rain_t;
 extern rain_t rain;
 

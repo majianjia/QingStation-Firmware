@@ -57,8 +57,9 @@ float get_light_info_g(){return light_info.G;}
 float get_light_info_b(){return light_info.B;}
 float get_light_info_ir(){return light_info.IR;}
 float get_light_info_all(){return light_info.ALS;}
-float get_rain_level(){return rain.rain_level;}
-float get_rain_var(){return rain.rain_var;}
+float get_rain_level(){return rain.level;}
+float get_rain_raw(){return rain.raw;}
+float get_rain_var(){return rain.var;}
 float get_lightning(){return lightning.distance;}
 float get_gnss_latitude(){return gnss.latitude;}
 float get_gnss_longitude(){return gnss.longitude;}
@@ -151,8 +152,9 @@ int print_light_info_g(char*buf){return sprintf(buf, "%d", light_info.G);}
 int print_light_info_b(char*buf){return sprintf(buf, "%d", light_info.B);}
 int print_light_info_ir(char*buf){return sprintf(buf, "%d", light_info.IR);}
 int print_light_info_all(char*buf){return sprintf(buf, "%d", light_info.ALS);}
-int print_rain_level(char*buf){return sprintf(buf, "%d", rain.rain_level);}
-int print_rain_var(char*buf){return sprintf(buf, "%.2f", rain.rain_var);}
+int print_rain_level(char*buf){return sprintf(buf, "%d", rain.level);}
+int print_rain_raw(char*buf){return sprintf(buf, "%d", rain.raw);}
+int print_rain_var(char*buf){return sprintf(buf, "%.2f", rain.var);}
 int print_lightning(char*buf){return sprintf(buf, "%d", (int)lightning.distance);}
 int print_gnss_latitude(char*buf){return sprintf(buf, "%f", gnss.latitude);}
 int print_gnss_longitude(char*buf){return sprintf(buf, "%f", gnss.longitude);}
@@ -199,6 +201,7 @@ int (*print_data[])(char* ) = {
         print_light_info_ir,
         print_light_info_all,
         print_rain_level,
+        print_rain_raw,
         print_rain_var,
         print_lightning,
         print_gnss_latitude,
@@ -246,6 +249,7 @@ const char data_name[][DATA_NAME_MAX_LEN] = {
         "infrared",
         "light",
         "rain",
+        "rain_raw",
         "rain_var",
         "lightning",
         "latitude",

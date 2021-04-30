@@ -47,6 +47,10 @@ extern "C"
 
 /*-------------------------- CLOCK CONFIG END --------------------------*/
 
+// flash
+#define BSP_USING_ON_CHIP_FLASH
+
+
 /*-------------------------- UART CONFIG BEGIN --------------------------*/
 
 /** After configuring corresponding UART or UART DMA, you can use it.

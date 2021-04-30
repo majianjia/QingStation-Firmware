@@ -144,8 +144,8 @@ int stm32_flash_write(rt_uint32_t addr, const uint8_t *buf, size_t size)
 
     HAL_FLASH_Unlock();
 
-    __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGSERR);
-
+    __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_SIZERR| FLASH_FLAG_OPERR |
+            FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGSERR);
     if (size < 1)
     {
         return -RT_ERROR;
@@ -233,7 +233,9 @@ int stm32_flash_erase(rt_uint32_t addr, size_t size)
     HAL_FLASH_Unlock();
 
     /* Clear OPTVERR bit set on virgin samples */
-    __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPTVERR);
+    //__HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPTVERR | FLASH_FLAG_PGSERR);
+    __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_SIZERR| FLASH_FLAG_OPERR |
+            FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGSERR);
     /* Get the 1st page to erase */
     FirstPage = GetPage(addr);
     /* Get the number of pages to erase from 1st page */

@@ -362,12 +362,12 @@ void load_default_config(system_config_t* sys)
 
     s = new_sensor("Rain", "adc_ch6");
     if(s == NULL) return;
-    s->oversampling = 10;
+    s->oversampling = 5;
     add_sensor(sys->sensors, s);
     rain_config_t* rain_cfg = malloc(sizeof(rain_config_t));
     if(rain_cfg == NULL) return;
     memset(rain_cfg, 0, sizeof(rain_config_t));
-    rain_cfg->light     = 10;
+    rain_cfg->light     = 15;
     rain_cfg->moderate  = 70;
     rain_cfg->heavy     = 200;
     rain_cfg->violent   = 500;

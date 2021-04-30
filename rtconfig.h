@@ -243,7 +243,7 @@
 #define MQTT_DEBUG
 #define PKG_USING_MYMQTT
 #define PKG_USING_MYMQTT_LATEST_VERSION
-#define MQTT_MAX_MESSAGE_HANDLERS 1
+#define MQTT_MAX_MESSAGE_HANDLERS 2
 
 /* Wi-Fi */
 
@@ -261,6 +261,7 @@
 #define NETUTILS_NTP_HOSTNAME "1.uk.pool.ntp.org"
 #define NETUTILS_NTP_HOSTNAME2 "ntp.rt-thread.org"
 #define NETUTILS_NTP_HOSTNAME3 "edu.ntp.org.cn"
+#define PKG_NETUTILS_TELNET
 #define PKG_USING_NETUTILS_LATEST_VERSION
 #define PKG_USING_AT_DEVICE
 #define AT_DEVICE_USING_ESP8266
@@ -275,6 +276,9 @@
 
 /* security packages */
 
+#define PKG_USING_TINYCRYPT
+#define PKG_USING_TINYCRYPT_LATEST_VERSION
+#define TINY_CRYPT_MD5
 /* end of security packages */
 
 /* language packages */

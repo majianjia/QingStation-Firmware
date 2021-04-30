@@ -13,5 +13,10 @@
   "path": "/packages/iot/at_device", 
   "ver": "latest", 
   "name": "AT_DEVICE"
+ }, 
+ {
+  "path": "/packages/security/tinycrypt", 
+  "ver": "latest", 
+  "name": "TINYCRYPT"
  }
 ]
