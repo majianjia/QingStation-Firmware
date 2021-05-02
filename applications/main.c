@@ -41,13 +41,9 @@ void led_indicate_release()
 }
 
 // the bootloader will search the "key" (everything before the version) and extract the version
-const char firmware_version[] = "QingFirmwareVersion^%&@$:0.1.0";
+// version = 0.0 is debug version.
+const char firmware_version[] = "QingFirmwareVersion^%&@$:100";
 
-// again, the bootloader will search the name and extract the CRC number.
-// when it equal to "00000000" -> means this is the debug firmware, bootloader will not copy the backup firmware.
-// This will need to set in hex format by using other tools.
-// when bootloader calculate CRC, the CRC number will be replaced by the default "00000000"
-const char firmware_crc[] = "QingCRC^%.s$:00000000";
 
 // return the offset to the end of the "key", i.e. the start of the value.
 int32_t search_key_location(const char* addr, const char *key, uint32_t len)
@@ -93,9 +89,7 @@ int main(void)
 
     int loc = 0;
     get_key_strings(firmware_version,  buf);
-    loc = search_key_location((const char*) (0x8000000), buf, 512*1024);
-    get_key_strings(firmware_crc,  buf);
-    loc = search_key_location((const char*) (0x8000000), buf, 512*1024);
+    loc = search_key_location((const char*) (0x08010000), buf, 448*1024);
 
     while (1)
     {

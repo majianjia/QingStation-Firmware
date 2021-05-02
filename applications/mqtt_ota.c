@@ -134,7 +134,7 @@ int mqtt_ota_receive(struct ota_t *ota, uint8_t *data, uint32_t len)
         stm32_flash_erase(start_addr, ERASE_SIZE);
     // write
     stm32_flash_write(start_addr, &data[5], size);
-    printf("writing data to 0x%x, size %d\r", start_addr, size);
+    printf("\rwriting data to 0x%x, size %d", start_addr, size);
     return 0;
 }
 
@@ -152,7 +152,7 @@ int mqtt_ota_end(struct ota_t *ota)
     strtok_r(NULL, ", ", &saveptr); // pack size
     md5 = strtok_r(NULL, ", ", &saveptr); // md5
 
-    printf("FW: %s\n", (char*)(BASE_ADDRESS));
+    printf("OTA FW tag: %s\n", (char*)(BASE_ADDRESS));
     // start validation
     ctx = malloc(sizeof(tiny_md5_context));
     if(ctx)
@@ -161,10 +161,10 @@ int mqtt_ota_end(struct ota_t *ota)
         tiny_md5_starts(ctx);
         tiny_md5_update(ctx, (void*)APP_BASE_ADDRESS, fw_size);
         tiny_md5_finish(ctx, output);
-        printf("OTA firmware MD5: %s\n", md5);
-        printf("Validate     MD5: ");
+        printf("OTA firmware    MD5: %s\n", md5);
+        printf("Local validated MD5: ");
         for(int i=0; i<16; i++)
-            printf("%x", output[i]);
+            printf("%02x", output[i]);
         printf("\n");
         free(ctx);
     }
@@ -175,6 +175,11 @@ int mqtt_ota_end(struct ota_t *ota)
     if(ota->pack_id)
         free(ota->pack_id);
     ota->state = OTA_IDEL;
+
+    // test
+    printf("Rebooting the device to update firmware.\n");
+    rt_thread_delay(500);
+    rt_hw_cpu_reset();
 
     return 0;
 }
@@ -199,8 +204,8 @@ void ota_thread(void *parameters)
 {
     int rslt = 0;
 
-    rt_thread_delay(2000);
-    mqtt_ota_end(&ota);
+    rt_thread_delay(1000);
+    //mqtt_ota_end(&ota);
 
     while(1)
     {
@@ -265,7 +270,7 @@ int md5(int argc, char* argv[])
     tiny_md5(argv[1], strlen(argv[1]), output);
     printf("%s \nMD5: \n", argv[1]);
     for(int i=0; i<16; i++)
-        printf("%x", output[i]);
+        printf("%02x", output[i]);
     printf("\n");
     return 0;
 }

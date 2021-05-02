@@ -261,7 +261,6 @@
 #define NETUTILS_NTP_HOSTNAME "1.uk.pool.ntp.org"
 #define NETUTILS_NTP_HOSTNAME2 "ntp.rt-thread.org"
 #define NETUTILS_NTP_HOSTNAME3 "edu.ntp.org.cn"
-#define PKG_NETUTILS_TELNET
 #define PKG_USING_NETUTILS_LATEST_VERSION
 #define PKG_USING_AT_DEVICE
 #define AT_DEVICE_USING_ESP8266
