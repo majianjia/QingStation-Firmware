@@ -122,9 +122,65 @@ void TIM3_Init(uint32_t frequency)
 
 }
 
+void analog_power_request(bool flag)
+{
+    static bool is_inited = 0;
+    static int request = 0;
+    if(!is_inited){
+        is_inited = true;
+        rt_pin_mode(PIN_SWOPA_EN, PIN_MODE_OUTPUT);
+    }
+
+    rt_enter_critical();
+    if(flag)
+        request ++;
+    else
+        request --;
+    if(request < 0)
+        request = 0;
+    rt_exit_critical();
+
+    if(request > 0)
+        rt_pin_write(PIN_SWOPA_EN, !request);
+}
+
 
 // enable the power for all analog sections.
 // user code need to wait until signal and power supplies are stable.
+void ane_drv_init(uint32_t freq, bool flag)
+{
+    static bool is_inited = 0;
+
+    if(!is_inited)
+    {
+        is_inited = 0;
+        rt_pin_mode(PIN_SW_A, PIN_MODE_OUTPUT);
+        rt_pin_mode(PIN_SW_B, PIN_MODE_OUTPUT);
+        rt_pin_mode(PIN_DRV_EN0, PIN_MODE_OUTPUT);
+        rt_pin_mode(PIN_DRV_EN1, PIN_MODE_OUTPUT);
+
+        MX_DMA_Init();
+        // ADC setting.
+        MX_ADC2_Init();
+        HAL_ADCEx_Calibration_Start(&hadc2, ADC_SINGLE_ENDED);
+        // disable ADC
+        //HAL_ADC_DeInit(&hadc2);
+    }
+
+    if(flag)
+    {
+        TIM3_Init(freq);
+    }else {
+        //timer
+        HAL_TIM_Base_DeInit(&htim3);
+    }
+
+    rt_pin_write(PIN_SW_A, GPIO_PIN_RESET);
+    rt_pin_write(PIN_SW_B, GPIO_PIN_RESET);
+    rt_pin_write(PIN_DRV_EN0, GPIO_PIN_RESET);
+    rt_pin_write(PIN_DRV_EN1, GPIO_PIN_RESET);
+}
+
 void ane_pwr_control(uint32_t freq, bool flag)
 {
     if(flag)
@@ -235,10 +291,6 @@ static inline void start_sampling(uint16_t* buffer, uint32_t length)
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*)buffer, length);
 }
 
-// start ADC sampling.
-static inline void setup_adc_sampling(uint16_t* buffer, uint32_t length)
-{
-}
 
 // test functions
 // send a pulse from CH side, then sample the opposite side ADC data. NORTH -> SOUTH

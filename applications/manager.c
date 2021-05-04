@@ -60,7 +60,8 @@ typedef struct thread_info {
     struct rt_thread* tid;
     uint32_t prev_time;
     uint32_t time;
-    uint32_t cpu;
+    rt_tick_t leave_tick;
+    float cpu;
 } thread_info_t;
 
 thread_info_t threads[32];
@@ -84,6 +85,18 @@ thread_info_t *find_or_add(thread_info_t *list, struct rt_thread* tid)
     return &list[i];
 }
 
+void delete_from_list(thread_info_t *list, struct rt_thread* tid)
+{
+    for(int i=0; i<32; i++)
+    {
+        if(tid == list[i].tid)
+        {
+            memset(&list[i], 0, sizeof(thread_info_t));
+            return;
+        }
+    }
+}
+
 static void hook_of_scheduler(struct rt_thread* from, struct rt_thread* to)
 {
     thread_info_t *t = NULL;
@@ -91,6 +104,12 @@ static void hook_of_scheduler(struct rt_thread* from, struct rt_thread* to)
     // stop
     t = find_or_add(threads, from);
     t->time += ts - t->prev_time;
+
+    // detect if a thread is timeout or deleted.
+    if(rt_tick_get() - t->leave_tick >= 10000 && t->leave_tick !=0 )
+        delete_from_list(threads, to);
+    else
+        t->leave_tick = rt_tick_get();
 
     t = find_or_add(threads, to);
     t->prev_time = ts;
@@ -100,16 +119,10 @@ static void hook_of_scheduler(struct rt_thread* from, struct rt_thread* to)
 
 int cpuusage(int argc, void*argv[])
 {
-    char line[32];
     for(int i=0; i<32; i++)
     {
         if(threads[i].tid != NULL)
-        {
-            strncpy(line, threads[i].tid->name, 8);
-            line[8] = '\0';
-            printf("%10s: ", line);
-            printf("%3u%%\n", threads[i].cpu);
-        }
+            printf("%8s : %.2f%%\n", threads[i].tid->name, threads[i].cpu);
     }
     return 0;
 }
@@ -129,7 +142,7 @@ void thread_manager(void* parameters)
     {
         uint32_t total = 0;
 
-        rt_thread_delay(500);
+        rt_thread_delay(1000);
 
         for(int i=0; i<32; i++)
         {
@@ -138,13 +151,9 @@ void thread_manager(void* parameters)
 
         for(int i=0; i<32; i++)
         {
-            if(threads[i].tid != NULL)
-            {
-                threads[i].cpu = threads[i].time *100 / total;
-                threads[i].time = 0;
-            }
+            threads[i].cpu = (double)(threads[i].time) *100 / total;
+            threads[i].time = 0;
         }
-
     }
 }
 

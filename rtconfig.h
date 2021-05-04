@@ -214,7 +214,7 @@
 /* Utilities */
 
 #define RT_USING_ULOG
-#define ULOG_OUTPUT_LVL_D
+#define ULOG_OUTPUT_LVL_DEBUG
 #define ULOG_OUTPUT_LVL 7
 #define ULOG_ASSERT_ENABLE
 #define ULOG_LINE_BUF_SIZE 512
@@ -227,12 +227,13 @@
 /* log format */
 
 #define ULOG_OUTPUT_FLOAT
-#define ULOG_USING_COLOR
 #define ULOG_OUTPUT_TIME
 #define ULOG_OUTPUT_LEVEL
 #define ULOG_OUTPUT_TAG
 /* end of log format */
 #define ULOG_BACKEND_USING_CONSOLE
+#define ULOG_USING_FILTER
+#define ULOG_USING_SYSLOG
 /* end of Utilities */
 /* end of RT-Thread Components */
 

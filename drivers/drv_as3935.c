@@ -149,6 +149,15 @@ int as3935_init(rt_device_t bus)
     temp = 0x00;
     write_regs(bus, AS3935_I2C_ADDR, AS3935_TUNECAP_REG, &temp, 1);
 
+    // set outdoor
+    temp = 0x1C;
+    write_regs(bus, AS3935_I2C_ADDR, 0x00, &temp, 1);
+
+    // set sensitive (spike reject) default=2
+    temp = 0xC0 | 4;
+    write_regs(bus, AS3935_I2C_ADDR, 0x02, &temp, 1);
+
+
     // disable disturbor interrupt, irq output clock frequency = f/128
     temp = 0xE0;
     write_regs(bus, AS3935_I2C_ADDR, AS3935_TUNEANT_REG, &temp, 1);

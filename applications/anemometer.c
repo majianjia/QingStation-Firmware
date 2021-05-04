@@ -66,6 +66,9 @@ const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, L, H, L, H, L, L, X, L,
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, L, H, L, H,  H, L, L, H, L}; // barker-code 7 -> +++--+-
 const uint32_t pulse_len = sizeof(cpulse) / sizeof(uint16_t);
 
+// pulse freqency, timer pwm cycle.
+#define PULSE_FREQ (80*1000)
+
 // ADC = 1Msps, 500sample = 0.5ms ToF ~= 0.17m
 // speed of sound: ~340m/s
 // 500 sample  = 0.5ms ~= 0.17m
@@ -895,12 +898,14 @@ void thread_anemometer(void* parameters)
             (int)(height*1000), (int)(pitch*1000), DEADZONE_OFFSET, VALID_LEN);
 
     // hardware power_on
-    ane_pwr_control(80*1000, true);
+    //ane_pwr_control(PULSE_FREQ, true);
+    ane_drv_init(PULSE_FREQ, true);
+    analog_power_request(true);
 
     // wait for lightning sensor to calibrate. it causes huge noise to west channel (east)
     while(is_lightning_calibrating()) rt_thread_delay(100);
 
-//    //test
+    //test
 //    if(is_ane_proc)
 //        send_to_processing(1000, 0, ADC_SAMPLE_LEN-50, cpulse, pulse_len);
 
@@ -975,6 +980,9 @@ void thread_anemometer(void* parameters)
     wind_hist.buf = malloc(sizeof(float) * wind_hist.size); // data for 30s
     memset(wind_hist.buf, 0, sizeof(float) * wind_hist.size);
 
+    // release analog pwr
+    analog_power_request(false);
+
     // main body
     rt_tick_t period = cfg->data_period / cfg->oversampling;
     uint64_t err_count = 0;
@@ -998,10 +1006,12 @@ void thread_anemometer(void* parameters)
         err = NORMAL;
 
         // make a sample
+        analog_power_request(true);
         sig_level[NORTH] = ane_measure_ch(NORTH,  cpulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN, true);
         sig_level[SOUTH] = ane_measure_ch(SOUTH,  cpulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN, true);
         sig_level[EAST] = ane_measure_ch(EAST,  cpulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN, true);
         sig_level[WEST] = ane_measure_ch(WEST, cpulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN, true);
+        analog_power_request(false);
 
         // test only
         if(is_ane_proc)
@@ -1091,6 +1101,7 @@ void thread_anemometer(void* parameters)
            abs(abs(dt[EAST] - T) - abs(dt[WEST] - T)) > 12)
         {
             err = ERR_MISALIGN;
+            err_count++;
             if(is_ane_log)
                 LOG_W("misaligned, dt measure distance too large: %.1f, %.1f, %.1f, %.1f", dt[NORTH], dt[EAST], dt[SOUTH], dt[WEST]);
             goto cycle_end;
@@ -1116,6 +1127,7 @@ void thread_anemometer(void* parameters)
         if(270 > c || c > 365)
         {
             err = ERR_WINDSPEED;
+            err_count++;
             if(is_ane_log)
                 LOG_W("Wind speed abnormal, ns:%.1f, ew:%.1f, est_c:%.1f, err_count:%d", ns_c, ew_c, est_c, err_count);
             goto cycle_end;

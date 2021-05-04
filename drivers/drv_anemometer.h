@@ -48,6 +48,12 @@ static char ane_ch_names[][2] = {
 #define PIN_SW_A    GET_PIN(B, 0)
 #define PIN_SW_B    GET_PIN(A, 7)
 
+// reques analog circuit
+void analog_power_request(bool flag);
+
+// enable the power for all analog sections.
+// user code need to wait until signal and power supplies are stable.
+void ane_drv_init(uint32_t freq, bool flag);
 void ane_pwr_control(uint32_t freq, bool flag);
 
 bool ane_check_busy();

@@ -56,13 +56,14 @@ static void MX_ADC1_Init(void)
         hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
         hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
         hadc1.Init.DMAContinuousRequests = DISABLE;
-        hadc1.Init.Overrun = ADC_OVR_DATA_PRESERVED;
+        hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
         hadc1.Init.OversamplingMode = DISABLE;
     } while( HAL_ADC_Init(&hadc1) != HAL_OK); // sometimes this fail.
 }
 
 int get_adc_value(uint32_t channel)
 {
+    int temp;
     ADC_ChanConf.Channel =  channel;
     ADC_ChanConf.SamplingTime = ADC_SAMPLETIME_24CYCLES_5;
     ADC_ChanConf.OffsetNumber = ADC_OFFSET_NONE;
@@ -71,18 +72,20 @@ int get_adc_value(uint32_t channel)
 
     HAL_ADC_Start(&hadc1);
     HAL_ADC_PollForConversion(&hadc1, 100);
-
-    return HAL_ADC_GetValue(&hadc1);;
+    temp = HAL_ADC_GetValue(&hadc1);
+    return temp;
 }
 
 
 int measure_rain()
 {
     uint16_t adc;
+    analog_power_request(true);
     rt_pin_write(IR_LED_PIN, GPIO_PIN_SET);
     rt_thread_mdelay(5);                // minimum 3 to be stable
     adc = get_adc_value(ADC_CHANNEL_6);
     rt_pin_write(IR_LED_PIN, GPIO_PIN_RESET);
+    analog_power_request(false);
     return adc;
 }
 
@@ -129,7 +132,22 @@ static float compute_variance(data_buffer_t *data)
     return var;
 }
 
+// return drop event per min
+static float compute_drop_event(data_buffer_t *data, float threshold, float samplerate)
+{
+    float diff = 0;
+    float event = 0;
+    for(int i=1; i<data->size; i++)
+    {
+        diff = absf(data->buf[i] - data->buf[i-1]);
+        if(diff > threshold)
+            event ++;
+    }
+    event = event*60 / (data->size / samplerate);
+    return event;
+}
 
+bool is_rain_print = false;
 void thread_rain(void* parameters)
 {
     sensor_config_t * cfg;
@@ -163,17 +181,20 @@ void thread_rain(void* parameters)
     HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
 
     int period = cfg->data_period / cfg->oversampling;
+    rt_tick_t last_t = rt_tick_get();
     while(1)
     {
         rt_thread_mdelay(2);
         rt_thread_mdelay(period - rt_tick_get()%period);
 
         // calculate the variance
+        rt_tick_t t = rt_tick_get();
         rain_raw = measure_rain();
         rain.raw = rain_raw;
         add_to_buffer(&rain_data, rain_raw);
-        if(rain_data.is_full)
+        if(rain_data.is_full && rt_tick_get() - last_t >= cfg->data_period)
         {
+            last_t = rt_tick_get();
             rain.var = compute_variance(&rain_data);
 
             int level = 0;
@@ -189,7 +210,8 @@ void thread_rain(void* parameters)
 
             data_updated(&rain.info);
         }
-        //printf("measurement:%d, rain_var: %f\n", rain_raw, rain.var);
+        if(is_rain_print)
+            printf("measurement:%d, rain_var: %f\n", rain_raw, rain.var);
 
         // temporary place the system voltage sending here
         // since our ADC is not using RTT's framework, so not thread safe yet.
@@ -215,6 +237,13 @@ int thread_rain_init()
     return RT_EOK;
 }
 INIT_APP_EXPORT(thread_rain_init);
+
+int rain_info(int argc, char* argv[])
+{
+    is_rain_print = !is_rain_print;
+    return 0;
+}
+MSH_CMD_EXPORT(rain_info, print raw rain measurement to console)
 
 
 void DMA1_Channel1_IRQHandler(void)

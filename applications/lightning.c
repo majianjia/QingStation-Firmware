@@ -18,6 +18,7 @@
 
 #define DBG_TAG "lightning"
 #define DBG_LVL DBG_INFO
+//#define DBG_LVL DBG_LOG
 #include <rtdbg.h>
 
 #define INT_PIN GET_PIN(B, 12)

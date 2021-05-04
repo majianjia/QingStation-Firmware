@@ -61,6 +61,7 @@ static void thread_recorder(void* parameter)
             recorder->fd = -1; // marked as closed. reopen required.
         }
     }while(recorder->is_open || rsl != -RT_ETIMEOUT); // wait for empty
+    recorder->is_open = false;
 
     // clear mq
     while(rt_mb_recv(recorder->mailbox, (void*)&rec_msg, 1) != -RT_ETIMEOUT)
@@ -104,6 +105,8 @@ int recorder_write(recorder_t * recorder, const char *str)
     if(recorder->magic != RECORDER_MAGIC) // assert
         return -1;
     if(!recorder->is_open)
+        return -1;
+    if(!recorder->mailbox)
         return -1;
 
     int len = strlen(str); // discard '\0'

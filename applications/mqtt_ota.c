@@ -138,6 +138,12 @@ int mqtt_ota_receive(struct ota_t *ota, uint8_t *data, uint32_t len)
     return 0;
 }
 
+int ota_invalidate(int a, char* av[])
+{
+   return stm32_flash_erase(BASE_ADDRESS, ERASE_SIZE);
+}
+MSH_CMD_EXPORT(ota_invalidate, destroy ota signiture)
+
 int mqtt_ota_end(struct ota_t *ota)
 {
     char* saveptr = NULL;

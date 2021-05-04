@@ -28,7 +28,7 @@
 #define ULOG_FILE_MAX_NUM    10
 #endif
 #ifndef ULOG_FILE_MAX_SIZE
-#define ULOG_FILE_MAX_SIZE   (1024 * 512)
+#define ULOG_FILE_MAX_SIZE   (4096 * 1024)
 #endif
 
 #define ULOG_FILE_PATH_LEN   128

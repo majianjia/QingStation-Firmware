@@ -84,9 +84,9 @@ int main(void)
     rt_pin_mode(LED0_PIN, PIN_MODE_OUTPUT);
     rt_pin_mode(LED1_PIN, PIN_MODE_OUTPUT);
 
+    // must keep these code
     char buf[32];
     memset(buf, 1, sizeof(buf));
-
     int loc = 0;
     get_key_strings(firmware_version,  buf);
     loc = search_key_location((const char*) (0x08010000), buf, 448*1024);
