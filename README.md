@@ -10,7 +10,7 @@ For hardware and more info, please see [the main repository for the QingStation]
 
 This firmware has start address of `0x8010000` (`64kB` offset). 
 Thus, it needs [QingStation bootloader](https://github.com/majianjia/QingStation-bootloader) to boot up.
-Or change it back to `0x8010000` by revising the link file. 
+Or change it back to `0x8000000` by revising the link file. 
 
 List of third party software packages:
 - cJSON
