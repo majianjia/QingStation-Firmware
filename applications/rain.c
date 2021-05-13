@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include "string.h"
 #include "math.h"
+#include "drv_anemometer.h" // for analog power supply
 
 #define DBG_TAG "rain"
 #define DBG_LVL DBG_LOG
@@ -182,6 +183,8 @@ void thread_rain(void* parameters)
 
     int period = cfg->data_period / cfg->oversampling;
     rt_tick_t last_t = rt_tick_get();
+    int last_raw = measure_rain();
+    int diff;
     while(1)
     {
         rt_thread_mdelay(2);
@@ -191,7 +194,9 @@ void thread_rain(void* parameters)
         rt_tick_t t = rt_tick_get();
         rain_raw = measure_rain();
         rain.raw = rain_raw;
-        add_to_buffer(&rain_data, rain_raw);
+        diff = rain_raw - last_raw;
+        last_raw = rain_raw;
+        add_to_buffer(&rain_data, diff); // variance of the change rate.
         if(rain_data.is_full && rt_tick_get() - last_t >= cfg->data_period)
         {
             last_t = rt_tick_get();
@@ -211,7 +216,7 @@ void thread_rain(void* parameters)
             data_updated(&rain.info);
         }
         if(is_rain_print)
-            printf("measurement:%d, rain_var: %f\n", rain_raw, rain.var);
+            printf("measurement:%d, diff: %d, rain_var: %f\n", rain_raw, diff, rain.var);
 
         // temporary place the system voltage sending here
         // since our ADC is not using RTT's framework, so not thread safe yet.

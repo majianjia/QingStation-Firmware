@@ -107,9 +107,9 @@ void TIM3_Init(uint32_t frequency)
   }
 
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 100;
+  sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH; // must not change
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE; //TIM_OCFAST_DISABLE;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE; //TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
@@ -267,6 +267,7 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
     if(htim->Instance == TIM3)
     {
         HAL_TIM_PWM_Stop_DMA(&htim3, TIM_CHANNEL_1);
+        //TIM_CCxChannelCmd(htim3.Instance, TIM_CHANNEL_1,TIM_CCx_DISABLE);
     }
 }
 

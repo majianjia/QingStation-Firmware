@@ -48,20 +48,23 @@ enum{
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L, L, H}; // +++++---++-+
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, H, L, H, L}; // +++++---++ // best for single peak method
 
-//const uint16_t cpulse[] = {L, H, L, H, L, L, H, L, H, L, H, L, H, H, L, H, L}; // ++----++// B2, M:10k
 
-//const uint16_t cpulse[] = {L, H, L,  H, L, L, H, L, H, H, L, H, L, H, L, H, L}; // 1011 M20
-//const uint16_t cpulse[] = {L, H, L, H, L, L, H, L, H, L, H, L, H, L, L, H, L, H, L}; // ++----++// B2, M:10k
-//const uint16_t cpulse[] = {L, H, L, H, L, L, H, L, H, L, H, L, H, L, L, H, L, H, L, H, L, H, L, L, H, L, H, L}; // ++--++----++ B3, M10k
+//const uint16_t cpulse[] = {L, H, L, H, L, L, H, L, H, H, L, H, L, H, L, H, L}; // 1011 M20
+const uint16_t cpulse[] = {L, H, L, H, L, L, H, L, H, L, H, L, H, H, L, H, L}; // ++----++// B2, M:10k (BEST)
+//const uint16_t cpulse[] = {L, H, L, H, L, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, L, L, H, L, H, L}; // ++--++----++ B3, M10k
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L};                   // normal -> ++++
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, L, H, L, H, L};          // +++--
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, L, H, L, H, L, H, L};    // +++---
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, H, L, H, L, H, L, H, L}; // +++++---
 //const uint16_t cpulse[] = {L, H, L, H, L, L, H, H, L};                   // ++-+ B4.1, M40k
-const uint16_t cpulse[] = {L, H, L, L, H, H, L, L, H, L, H, H, L, H, L, L, H, L}; // +-+--++- B4.1 M20k
+//const uint16_t cpulse[] = {L, H, L, L, H, H, L, L, H, L, H, H, L, H, L, L, H, L}; // +-+--++- B4.1 M20k
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, L, H, L};                // +++- B4.2 M40k
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, L, H, L, H,  H, L, L, H, L}; // barker-code 7 -> +++--+-
 const uint32_t pulse_len = sizeof(cpulse) / sizeof(uint16_t);
+
+// pulse freqency, timer pwm cycle.
+#define PULSE_FREQ (80*1000)
+
 
 // ADC = 1Msps, 500sample = 0.5ms ToF ~= 0.17m
 // speed of sound: ~340m/s
@@ -488,16 +491,6 @@ float preprocess2(uint16_t *raw, float* out, uint32_t len)
     return zero_level;
 }
 
-/*
-// add a small LPF to avoid equal number, which cause turning point detection fail
-void small_lpf(float* sig, uint32_t len)
-{
-    float momentum = sig[0];
-    for(uint32_t i=1; i<len; i++){
-        sig[i] = sig[i]*0.9 + momentum*0.1;
-        momentum = sig[i];
-    }
-}*/
 
 // this is a moving sum version, windows size = half wave of 40k
 void small_lpf(float* sig, uint32_t len)
@@ -703,6 +696,26 @@ void create_pattern(const uint16_t p[], int pulse_len, float* pattern, int sampl
             pattern[i] = amplitude;
         else
             pattern[i] = -amplitude;
+
+        printf("%f\n", pattern[i]);
+    }
+}
+
+// polarity = -1 or 1
+void create_pattern2(const uint16_t p[], int pulse_len, float* pattern, int freq, float polarity)
+{
+    int pulse_idx = 0;
+    int pattern_len = get_pattern_len(pulse_len, freq);
+    float amplitude = 1/(float)pattern_len * 4 * polarity; // polarity control and normalized
+    float step = (1000000/(float)freq);
+
+    for(int i=0; i<pattern_len; i++)
+    {
+        pulse_idx = i / step / 2;
+        if(p[pulse_idx*2] > 0 && p[pulse_idx*2+1] ==0)
+            pattern[i] = amplitude * sinf(3.1415926f * (i/step));
+        else
+            pattern[i] = -amplitude * sinf(3.1415926f * (i/step));
 
         printf("%f\n", pattern[i]);
     }
@@ -925,12 +938,19 @@ void thread_anemometer(void* parameters)
             (int)(height*1000), (int)(pitch*1000), DEADZONE_OFFSET, VALID_LEN);
 
     // hardware power_on
-    ane_pwr_control(80*1000, true);
+    //ane_pwr_control(80*1000, true);
+    analog_power_request(true);
+    ane_drv_init(PULSE_FREQ, true);
 
-    int pattern_size = get_pattern_len(pulse_len, 80*1000)*sizeof(float);
+//    int pattern_size = get_pattern_len(pulse_len, 80*1000)*sizeof(float);
+//    pattern_template = malloc(pattern_size);
+//    memset(pattern_template, 0, pattern_size);
+//    create_pattern(cpulse, pulse_len, pattern_template, 80*1000, -1);
+
+    int pattern_size = get_pattern_len(pulse_len - 1, 80*1000)*sizeof(float);
     pattern_template = malloc(pattern_size);
     memset(pattern_template, 0, pattern_size);
-    create_pattern(cpulse, pulse_len, pattern_template, 80*1000, -1);
+    create_pattern2(&cpulse[1], pulse_len-1, pattern_template, 80*1000, 1); // ignore first L
 
     // wait for lightning sensor to calibrate. it causes huge noise to west channel (east)
     while(is_lightning_calibrating()) rt_thread_delay(100);
@@ -1010,6 +1030,9 @@ void thread_anemometer(void* parameters)
     wind_hist.buf = malloc(sizeof(float) * wind_hist.size); // data for 30s
     memset(wind_hist.buf, 0, sizeof(float) * wind_hist.size);
 
+    // release
+    analog_power_request(false);
+
     // main body
     rt_tick_t period = cfg->data_period / cfg->oversampling;
     uint64_t err_count = 0;
@@ -1021,7 +1044,7 @@ void thread_anemometer(void* parameters)
     float course=0;
     float mse_history[4] = {0}; // matching abnormal checking
     float c_history = 0; // sound speed for abnormal checking
-    rt_tick_t last_dump = rt_tick_get(); // to limit the dumpping per second
+    rt_tick_t last_dump = rt_tick_get(); // to li mit the dumpping per second
     int err = NORMAL;
     while(1)
     {
@@ -1033,10 +1056,13 @@ void thread_anemometer(void* parameters)
         err = NORMAL;
 
         // make a sample
+        analog_power_request(true);
+        rt_thread_mdelay(2);
         sig_level[NORTH] = ane_measure_ch(NORTH,  cpulse, pulse_len, adc_buffer[NORTH], ADC_SAMPLE_LEN, true);
         sig_level[SOUTH] = ane_measure_ch(SOUTH,  cpulse, pulse_len, adc_buffer[SOUTH], ADC_SAMPLE_LEN, true);
         sig_level[EAST] = ane_measure_ch(EAST,  cpulse, pulse_len, adc_buffer[EAST], ADC_SAMPLE_LEN, true);
         sig_level[WEST] = ane_measure_ch(WEST, cpulse, pulse_len, adc_buffer[WEST], ADC_SAMPLE_LEN, true);
+        analog_power_request(false);
 
         // test only
         if(is_ane_proc)
@@ -1050,57 +1076,13 @@ void thread_anemometer(void* parameters)
         for(int idx = 0; idx < 4; idx ++)
         {
             // convert to float
-            preprocess(adc_buffer[idx], sig2, sig_level[idx], ADC_SAMPLE_LEN);
+            preprocess(adc_buffer[idx], sig, sig_level[idx], ADC_SAMPLE_LEN);
 
             // save for correlation (test)
-            memcpy(corr_sig[idx], &sig[DEADZONE_OFFSET], CORR_LEN*sizeof(float));
+            //memcpy(corr_sig[idx], &sig[DEADZONE_OFFSET], CORR_LEN*sizeof(float));
 
-            // band pass filter.
-            filter(sig2, sig, ADC_SAMPLE_LEN, bp_coeff, bp_coeff_order);
-            // normalize to -1 to 1
-            normalize(&sig[DEADZONE_OFFSET], VALID_LEN);
+            correlation(corr_sig[idx], CORR_LEN, pattern_template, pattern_size/sizeof(float), corr_sigout);
 
-            // Beside to use the signal peak to calculate the rough propagation time,
-            // We use a few more peak and valley around the main peaks.
-            // And use MSE to match the signals.  This is a shape detector.
-            // detect peaks as shape.
-            float shape[PEAK_LEN][2];
-            memset(shape, 0, sizeof(shape));
-            capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, shape, PEAK_LEFT, PEAK_RIGHT, 0.1);
-
-            // use peak to find the offset if there is any on the main peak
-            #define MSE_RANGE 9
-            float mse[MSE_RANGE];
-            int mini_mse;
-            int peak_off;
-            mini_mse = match_shape(ref_shape[idx], shape, PEAK_LEN, mse, MSE_RANGE);
-            // use linear functions to locate the main peak, this is different from the mse method in realtime measurement.
-            //peak_off = locate_main_peak(shape, PEAK_LEN);
-            peak_off =  mini_mse - MSE_RANGE/2;
-            mse_history[idx] = 0.9*mse_history[idx] + 0.1*mse[mini_mse];
-            if(isnanf(mse[0])){
-                err = ERR_MSE_NAN;
-                is_data_correct = false;
-            }
-            if(mse[mini_mse] > mse_history[idx]*10)
-            {
-                if(is_ane_log)
-                    LOG_W("cannot match signal, mse history:%f, mini mse: %f", mse_history[idx], mse[mini_mse]);
-                err = ERR_SHAPE_MISMATCH;
-                is_data_correct = false;
-            }
-            // dynamically update the ref_shapes
-//            else if(!peak_off){
-//                update_shape(ref_shape[idx], shape, 0.02);
-//            }
-
-            // finally we can locate the main peak, despite the peak is distorted
-            if(is_ane_log && abs(peak_off) > 2){ // small offset dose not considered as error
-                int buf_idx = 0;
-                for(int i=0; i<MSE_RANGE; i++)
-                    buf_idx += sprintf(&str_buf[buf_idx],"%f ",mse[i]);
-                LOG_W("peak offset %d, ch: %s, mse: %s",peak_off, ane_ch_names[idx], str_buf);
-            }
 
             // we start the crossing point from the PEAK_ZC + offset detected by shape
             int off = shape[PEAK_ZC + peak_off][0];
@@ -1120,10 +1102,12 @@ void thread_anemometer(void* parameters)
         for(int i=0; i<CORR_LEN; i++)
             printf("%f\n", corr_sig[SOUTH][i]);
 
-        correlation(corr_sig[NORTH], CORR_LEN, pattern_template, pattern_size/4, corr_sigout);
+        memset(&corr_sig[NORTH][0], 0, sizeof(float)*150);
+        memset(&corr_sig[SOUTH][0], 0, sizeof(float)*150);
+        correlation(corr_sig[NORTH], CORR_LEN, pattern_template, pattern_size/sizeof(float), corr_sigout);
         for(int i=0; i<2*CORR_LEN+1; i++)
             printf("%f\n", corr_sigout[i]);
-        correlation(corr_sig[SOUTH], CORR_LEN, pattern_template, pattern_size/4, corr_sigout);
+        correlation(corr_sig[SOUTH], CORR_LEN, pattern_template, pattern_size/sizeof(float), corr_sigout);
         for(int i=0; i<2*CORR_LEN+1; i++)
             printf("%f\n", corr_sigout[i]);
 
