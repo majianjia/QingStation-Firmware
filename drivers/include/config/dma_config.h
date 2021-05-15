@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2018, RT-Thread Development Team
+ * Copyright (c) 2006-2021, RT-Thread Development Team
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -194,7 +194,6 @@ extern "C" {
 #endif /* DMAMUX1 */
 #define UART1_TX_DMA_IRQ                DMA2_Channel6_IRQn
 #endif
-
 
 /* DMA2 channel7 */
 #if defined(BSP_UART1_RX_USING_DMA) && !defined(UART1_RX_DMA_INSTANCE)

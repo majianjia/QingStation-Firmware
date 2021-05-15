@@ -54,6 +54,7 @@ unsigned int get_cpu_timer(){
     return DWT->CYCCNT;
 }
 
+#define MAX_THREAD 20
 
 // test for thread hooks
 typedef struct thread_info {
@@ -64,17 +65,17 @@ typedef struct thread_info {
     float cpu;
 } thread_info_t;
 
-thread_info_t threads[32];
+thread_info_t threads[MAX_THREAD];
 
 thread_info_t *find_or_add(thread_info_t *list, struct rt_thread* tid)
 {
     int i = 0;
-    for(i=0; i<32; i++)
+    for(i=0; i<MAX_THREAD; i++)
     {
         if(tid == list[i].tid)
             return &list[i];
     }
-    for(i=0; i<32; i++)
+    for(i=0; i<MAX_THREAD; i++)
     {
         if(list[i].tid == NULL)
         {
@@ -87,7 +88,7 @@ thread_info_t *find_or_add(thread_info_t *list, struct rt_thread* tid)
 
 void delete_from_list(thread_info_t *list, struct rt_thread* tid)
 {
-    for(int i=0; i<32; i++)
+    for(int i=0; i<MAX_THREAD; i++)
     {
         if(tid == list[i].tid)
         {
@@ -104,12 +105,7 @@ static void hook_of_scheduler(struct rt_thread* from, struct rt_thread* to)
     // stop
     t = find_or_add(threads, from);
     t->time += ts - t->prev_time;
-
-    // detect if a thread is timeout or deleted.
-    if(rt_tick_get() - t->leave_tick >= 10000 && t->leave_tick !=0 )
-        delete_from_list(threads, to);
-    else
-        t->leave_tick = rt_tick_get();
+    t->leave_tick = rt_tick_get();
 
     t = find_or_add(threads, to);
     t->prev_time = ts;
@@ -119,7 +115,7 @@ static void hook_of_scheduler(struct rt_thread* from, struct rt_thread* to)
 
 int cpuusage(int argc, void*argv[])
 {
-    for(int i=0; i<32; i++)
+    for(int i=0; i<MAX_THREAD; i++)
     {
         if(threads[i].tid != NULL)
             printf("%8s : %.2f%%\n", threads[i].tid->name, threads[i].cpu);
@@ -144,12 +140,19 @@ void thread_manager(void* parameters)
 
         rt_thread_delay(1000);
 
-        for(int i=0; i<32; i++)
+        // detect if a thread is timeout or deleted.
+        for(int i=0; i<MAX_THREAD; i++)
+        {
+            if(rt_tick_get() - threads[i].leave_tick >= 10000)
+                delete_from_list(threads, threads[i].tid);
+        }
+
+        for(int i=0; i<MAX_THREAD; i++)
         {
            total += threads[i].time;
         }
 
-        for(int i=0; i<32; i++)
+        for(int i=0; i<MAX_THREAD; i++)
         {
             threads[i].cpu = (double)(threads[i].time) *100 / total;
             threads[i].time = 0;
@@ -161,7 +164,7 @@ int thread_manager_init()
 {
     rt_thread_t tid;
 
-    tid = rt_thread_create("mngr", thread_manager, RT_NULL, 1024, 12, 1000);
+    tid = rt_thread_create("mngr", thread_manager, RT_NULL, 1024, 30, 1000);
     if(!tid)
         return RT_ERROR;
     rt_thread_startup(tid);

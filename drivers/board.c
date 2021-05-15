@@ -23,7 +23,6 @@ RT_WEAK void rt_hw_board_init()
 
     // OTA
 
-
     /* Heap initialization */
 #if defined(RT_USING_HEAP)
     // default

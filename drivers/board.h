@@ -72,6 +72,7 @@ extern "C"
 
 #define BSP_USING_LPUART1
 #define BSP_LPUART1_RX_USING_DMA
+//#define BSP_LPUART1_TX_USING_DMA
 #define BSP_LPUART1_TX_PIN       "PB11"
 #define BSP_LPUART1_RX_PIN       "PB10"
 

@@ -95,12 +95,12 @@ int measure_sys_voltage()
     return get_adc_value(ADC_CHANNEL_4);
 }
 
-float measure_vdda_voltage()
+float measure_vdda_voltage(float calib)
 {
     uint32_t raw;
     float volt;
     raw = get_adc_value(ADC_CHANNEL_VREFINT);
-    volt = (float)VREFINT_CAL_VREF * (*VREFINT_CAL_ADDR) / raw /1000;
+    volt = calib / raw ;
     return volt;
 }
 
@@ -140,7 +140,7 @@ static float compute_drop_event(data_buffer_t *data, float threshold, float samp
     float event = 0;
     for(int i=1; i<data->size; i++)
     {
-        diff = absf(data->buf[i] - data->buf[i-1]);
+        diff = fabs(data->buf[i] - data->buf[i-1]);
         if(diff > threshold)
             event ++;
     }
@@ -156,6 +156,7 @@ void thread_rain(void* parameters)
     uint16_t rain_raw;
     uint16_t sys_vol_raw;
     float vdda;
+    float calib = (float)VREFINT_CAL_VREF * (*VREFINT_CAL_ADDR) / 1000;
 
     rt_pin_mode(IR_LED_PIN, PIN_MODE_OUTPUT);
     rt_pin_write(IR_LED_PIN, GPIO_PIN_RESET);
@@ -185,6 +186,7 @@ void thread_rain(void* parameters)
     rt_tick_t last_t = rt_tick_get();
     int last_raw = measure_rain();
     int diff;
+    float volt;
     while(1)
     {
         rt_thread_mdelay(2);
@@ -220,8 +222,7 @@ void thread_rain(void* parameters)
 
         // temporary place the system voltage sending here
         // since our ADC is not using RTT's framework, so not thread safe yet.
-        float volt;
-        vdda = measure_vdda_voltage();
+        vdda = measure_vdda_voltage(calib);
         sys_vol_raw = measure_sys_voltage();
         volt = sys_vol_raw / 4095.f * vdda * 2;
         sys.bat_voltage = volt * 0.1f + sys.bat_voltage * 0.9f; // simple RC filter.

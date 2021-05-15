@@ -409,8 +409,9 @@ void load_default_config(system_config_t* sys)
     // gnss
     sys->gnss.is_enable = true;
     sys->gnss.period = 1000;
-    sys->gnss.baudrate = 57600;
+    sys->gnss.baudrate = 19200;
     strcpy(sys->gnss.interface, "uart2");
+
 }
 
 

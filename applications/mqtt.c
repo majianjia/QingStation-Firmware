@@ -255,7 +255,7 @@ static int mqtt_start(int argc, char **argv)
         client.condata.will.message.cstring = MQTT_WILLMSG;
 
         /* malloc buffer. */
-        client.buf_size = client.readbuf_size = 1024;
+        client.buf_size = client.readbuf_size = 512;
         client.buf = rt_calloc(1, client.buf_size);
         client.readbuf = rt_calloc(1, client.readbuf_size);
         if (!(client.buf && client.readbuf))
@@ -277,7 +277,7 @@ static int mqtt_start(int argc, char **argv)
         /* for OTA */
         client.message_handlers[1].topicFilter = rt_strdup(MQTT_OTA_DOWNSTREAM);
         client.message_handlers[1].callback = mqtt_ota_callback;
-        client.message_handlers[1].qos = QOS0;
+        client.message_handlers[1].qos = QOS2;
 
         /* set default subscribe event callback */
         client.default_message_handlers = mqtt_sub_default_callback;
@@ -403,8 +403,8 @@ void thread_mqtt(void* p)
 
     struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
     rt_device_t serial = rt_device_find(cfg->interface);
-    //rt_device_open(serial, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_DMA_RX);
-    rt_device_open(serial, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_INT_RX);
+    //rt_device_open(serial, RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_DMA_RX);
+    rt_device_open(serial, RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_INT_RX);
 
     config.baud_rate  = 57600;// cfg->baudrate; // do not configer higher than this.
     if(config.baud_rate > 57600)

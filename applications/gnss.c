@@ -202,7 +202,8 @@ void thread_gnss(void* p)
     rt_thread_mdelay(1000);
     rt_device_t serial = rt_device_find(cfg->interface);
     rt_device_set_rx_indicate(serial, uart_input);
-    rt_device_open(serial, RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
+    //rt_device_open(serial, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_DMA_RX | RT_DEVICE_FLAG_INT_TX);
+    rt_device_open(serial, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
 
     // try to scan the bitrates
     gnss_bitrate = detect_bitrate(serial, 30);
