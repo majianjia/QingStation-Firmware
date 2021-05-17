@@ -17,7 +17,7 @@
 #define IDLE_THREAD_STACK_SIZE 512
 #define RT_USING_TIMER_SOFT
 #define RT_TIMER_THREAD_PRIO 4
-#define RT_TIMER_THREAD_STACK_SIZE 1024
+#define RT_TIMER_THREAD_STACK_SIZE 512
 #define RT_DEBUG
 #define RT_DEBUG_COLOR
 #define RT_DEBUG_INIT_CONFIG
@@ -202,7 +202,7 @@
 #define AT_CLIENT_NUM_MAX 1
 #define AT_USING_SOCKET
 #define AT_USING_CLI
-#define AT_CMD_MAX_LEN 256
+#define AT_CMD_MAX_LEN 512
 #define AT_SW_VERSION_NUM 0x10301
 /* end of AT commands */
 /* end of Network */

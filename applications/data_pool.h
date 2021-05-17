@@ -10,6 +10,7 @@
 #ifndef __DATA_POOL_H__
 #define __DATA_POOL_H__
 
+#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <rtthread.h>
@@ -131,6 +132,7 @@ typedef struct _sys_t
     sensor_info_t info;
     float bat_voltage;
     float sys_voltage;
+    float mcu_temp;
 }sys_t;
 extern sys_t sys;
 
@@ -138,7 +140,7 @@ extern sys_t sys;
 void data_updated(sensor_info_t *info);
 
 
-#define DATA_NAME_MAX_LEN   (12)
+#define DATA_NAME_MAX_LEN   (16)
 
 /*  names and getters for availalbe recording and data */
 extern float (*get_data[])();

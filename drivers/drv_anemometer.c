@@ -20,24 +20,40 @@
 #define DBG_LVL DBG_LOG
 #include <rtdbg.h>
 
-
+// copy of cubemx/src/main.c
 static void MX_DMA_Init(void)
 {
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
+    /* DMA controller clock enable */
+    __HAL_RCC_DMA1_CLK_ENABLE();
+    __HAL_RCC_DMA2_CLK_ENABLE();
 
-  /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
-  /* DMA1_Channel6_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 1, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
+    /* DMA interrupt init */
+    /* DMA1_Channel1_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 1, 2);
+    HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+    /* DMA1_Channel2_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
+    /* DMA1_Channel4_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 1, 2);
+    HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
+    /* DMA1_Channel6_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 1, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
+    /* DMA2_Channel6_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 1, 3);
+    HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
+    /* DMA2_Channel7_IRQn interrupt configuration */
+    HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, 1, 3);
+    HAL_NVIC_EnableIRQ(DMA2_Channel7_IRQn);
 }
 
 // ADC init
-ADC_HandleTypeDef hadc2;
-DMA_HandleTypeDef hdma_adc2;
-DMA_HandleTypeDef hdma_tim3_ch1_trig;
+extern ADC_HandleTypeDef hadc2;
+extern DMA_HandleTypeDef hdma_adc2;
+extern DMA_HandleTypeDef hdma_tim3_ch1_trig;
+// timer initialization
+extern TIM_HandleTypeDef htim3;
 
 // when use cubemx to configure, copy the MX function in cubemx/core/main.c to here after every configuration.
 static void MX_ADC2_Init(void)
@@ -53,7 +69,7 @@ static void MX_ADC2_Init(void)
    hadc2.Init.Resolution = ADC_RESOLUTION_12B;
    hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
    hadc2.Init.ScanConvMode = ADC_SCAN_DISABLE;
-   hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+   hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;//ADC_EOC_SINGLE_CONV;
    hadc2.Init.LowPowerAutoWait = DISABLE;
    hadc2.Init.ContinuousConvMode = ENABLE;
    hadc2.Init.NbrOfConversion = 1;
@@ -81,8 +97,6 @@ static void MX_ADC2_Init(void)
    }
 }
 
-// timer initialization
-TIM_HandleTypeDef htim3;
 
 void TIM3_Init(uint32_t frequency)
 {
@@ -276,9 +290,15 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
     extern ADC_HandleTypeDef hadc1;
     if(hadc->Instance == ADC2)
         HAL_ADC_Stop_DMA(&hadc2);
-    if(hadc->Instance == ADC1)
+    else if(hadc->Instance == ADC1){ // now switch to continue mode.
         HAL_ADC_Stop_DMA(&hadc1); // for Rain and System voltage
+    }
 }
+
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
+{
+}
+
 
 bool ane_check_busy()
 {

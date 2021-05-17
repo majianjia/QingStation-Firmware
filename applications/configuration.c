@@ -367,10 +367,10 @@ void load_default_config(system_config_t* sys)
     rain_config_t* rain_cfg = malloc(sizeof(rain_config_t));
     if(rain_cfg == NULL) return;
     memset(rain_cfg, 0, sizeof(rain_config_t));
-    rain_cfg->light     = 15;
-    rain_cfg->moderate  = 70;
-    rain_cfg->heavy     = 200;
-    rain_cfg->violent   = 500;
+    rain_cfg->light     = 5;
+    rain_cfg->moderate  = 20;
+    rain_cfg->heavy     = 50;
+    rain_cfg->violent   = 100;
     s->user_data = rain_cfg;
     s->create_json = rain_create_json;
     s->load_json = rain_load_json;
@@ -403,7 +403,7 @@ void load_default_config(system_config_t* sys)
     strcpy(sys->mqtt.mqtt_password,"");
     strcpy(sys->mqtt.pub_data, ""); // empty means every data is published.
     strcpy(sys->mqtt.topic_prefix, ""); // allows you to add a super topic before data.
-    strcpy(sys->mqtt.uri, "broker.emqx.io");
+    strcpy(sys->mqtt.uri, "");
     sys->mqtt.port = 1883;
 
     // gnss
@@ -411,7 +411,6 @@ void load_default_config(system_config_t* sys)
     sys->gnss.period = 1000;
     sys->gnss.baudrate = 19200;
     strcpy(sys->gnss.interface, "uart2");
-
 }
 
 

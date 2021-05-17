@@ -9,13 +9,12 @@
  * 2021-03-07     majia       the first version
  */
 
-
-#include <rtthread.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include <stdio.h>
 
+#include <rtthread.h>
 #include "data_pool.h"
 
 // instances
@@ -76,6 +75,7 @@ float get_ane_soundspeed(){return anemometer.soundspeed;}
 float get_ane_err_code(){return anemometer.err_code;}
 float get_sys_bat_volt(){return sys.bat_voltage;}
 float get_sys_volt(){return sys.sys_voltage;}
+float get_sys_temp(){return sys.mcu_temp;}
 
 
 /* here we map data to their names,
@@ -123,7 +123,8 @@ float (*get_data[])() = {
         get_ane_soundspeed,
         get_ane_err_code,
         get_sys_bat_volt,
-        get_sys_volt
+        get_sys_volt,
+        get_sys_temp
 };
 
 /* simple getters */
@@ -171,6 +172,7 @@ int print_ane_soundspeed(char*buf){return sprintf(buf, "%.2f", anemometer.sounds
 int print_ane_err_code(char*buf){return sprintf(buf, "%d", anemometer.err_code);};
 int print_sys_bat_volt(char*buf){return sprintf(buf, "%.3f", sys.bat_voltage);}
 int print_sys_volt(char*buf){return sprintf(buf, "%.3f", sys.sys_voltage);}
+int print_sys_temp(char*buf){return sprintf(buf, "%.1f", sys.mcu_temp);}
 
 /* here we map data to their names,
  * so the log and recorder can be easily define which data we want by simply passing a header */
@@ -218,7 +220,8 @@ int (*print_data[])(char* ) = {
         print_ane_soundspeed,
         print_ane_err_code,
         print_sys_bat_volt,
-        print_sys_volt
+        print_sys_volt,
+        print_sys_temp
 };
 
 /*  names of data is corresponded to the above data getters. */
@@ -242,31 +245,32 @@ const char data_name[][DATA_NAME_MAX_LEN] = {
         "quat_q3",
         "pressure",
         "humidity",
-        "temp",
+        "air_temp",
         "red",
         "green",
         "blue",
         "infrared",
-        "light",
-        "rain",
+        "als",
+        "rain_level",
         "rain_raw",
         "rain_var",
         "lightning",
-        "latitude",
-        "longitude",
-        "speed",
-        "altitude",
-        "course",
-        "num_sat",
-        "fixed",
-        "windcourse",
-        "windspeed",
-        "wind30savg",
-        "wind30smax",
+        "gnss_lat",
+        "gnss_long",
+        "gnss_speed",
+        "gnss_alt",
+        "gnss_course",
+        "gnss_sat",
+        "gnss_fixed",
+        "wind_dir",
+        "wind_speed",
+        "wind_30savg",
+        "wind_gust",
         "sndspeed",
         "ane_err",
         "bat_volt",
-        "sys_volt"
+        "sys_volt",
+        "mcu_temp"
 };
 
 const int EXPORT_DATA_SIZE = (sizeof(data_name)/DATA_NAME_MAX_LEN);
@@ -322,7 +326,7 @@ int data_test()
 void data_updated(sensor_info_t *info)
 {
     rt_tick_t tick = rt_tick_get();
-    info->update_rate = ((float)(tick - info->update_timestamp))/RT_TICK_PER_SECOND;
+    info->update_rate = RT_TICK_PER_SECOND/((float)(tick - info->update_timestamp));
     info->update_timestamp = tick;
     info->count++;
 }

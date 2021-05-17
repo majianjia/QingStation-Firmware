@@ -89,7 +89,7 @@ int main(void)
     memset(buf, 1, sizeof(buf));
     int loc = 0;
     get_key_strings(firmware_version,  buf);
-    loc = search_key_location((const char*) (0x08010000), buf, 448*1024);
+    loc = search_key_location((const char*) (0x08010000), buf, 446*1024);
 
     while (1)
     {

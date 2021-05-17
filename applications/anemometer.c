@@ -25,6 +25,10 @@
 #define DBG_LVL LOG_LVL_DBG
 #include <rtdbg.h>
 
+// in main.c temp
+void led_indicate_busy();
+void led_indicate_release();
+
 enum{
     NORMAL = 0,
     ERR_MSE_NAN = 1,
@@ -528,14 +532,14 @@ void filter(float* x, float* y, uint32_t signal_len, const float ba[][2], const 
 }
 
 
-void test_channel(uint32_t ch)
-{
-#define PWM_PIN GET_PIN(A, 6)
-    rt_pin_mode(PWM_PIN, PIN_MODE_OUTPUT);
-    set_output_channel(ch);
-    rt_pin_write(PWM_PIN, 1);
-    rt_pin_write(PWM_PIN, 0);
-}
+//void test_channel(uint32_t ch)
+//{
+//#define PWM_PIN GET_PIN(A, 6)
+//    rt_pin_mode(PWM_PIN, PIN_MODE_OUTPUT);
+//    set_output_channel(ch);
+//    rt_pin_write(PWM_PIN, 1);
+//    rt_pin_write(PWM_PIN, 0);
+//}
 
 void test_print_raw()
 {
@@ -776,8 +780,8 @@ int calibration2(float* static_zero_cross, float* echo_shape, float* sig,
             // normalize to -1 to 1
             normalize(&sig[DEADZONE_OFFSET], VALID_LEN);
             // search original peaks, use to rough estimate the data.
-            capture_peaks_from(&sig[DEADZONE_OFFSET + start_idx],  VALID_LEN-start_idx, peaks_zero[idx], PEAK_LEN, 0.2);
-            //capture_peaks(&sig[DEADZONE_OFFSET + start_idx], VALID_LEN, peaks_zero[idx], 0, PEAK_RIGHT+PEAK_LEFT, 0.2);
+            capture_peaks_from(&sig[DEADZONE_OFFSET + start_idx],  VALID_LEN-start_idx, peaks_zero[idx], PEAK_LEN, 0.02);
+            //capture_peaks(&sig[DEADZONE_OFFSET + start_idx], VALID_LEN, peaks_zero[idx], 0, PEAK_RIGHT+PEAK_LEFT, 0.02);
             // recover timestamp
             for(int j=0; j<PEAK_LEN; j++)
                 peaks_zero[idx][j][0] += DEADZONE_OFFSET + start_idx;
@@ -859,8 +863,6 @@ static float ringbuffer_max(ringbuffer_t *data)
     return max;
 }
 
-
-
 bool is_ane_log = false;
 void anemometer_info(int argc, void*argv){
     is_ane_log = !is_ane_log;
@@ -912,8 +914,8 @@ void thread_anemometer(void* parameters)
     while(is_lightning_calibrating()) rt_thread_delay(100);
 
     //test
-//    if(is_ane_proc)
-//        send_to_processing(1000, 0, ADC_SAMPLE_LEN-50, cpulse, pulse_len);
+    if(is_ane_proc)
+        send_to_processing(1000, 0, ADC_SAMPLE_LEN-50, cpulse, pulse_len);
 
     // check connection
     LOG_I("Checking transducers connection.");
@@ -937,6 +939,8 @@ void thread_anemometer(void* parameters)
     float static_zero_cross[4][ZEROCROSS_LEN] = {0};
     float ref_shape[4][PEAK_LEN][2] = {0};       // store the shape of the echo
 
+    led_indicate_busy();
+    rt_thread_mdelay(500);
     LOG_I("Calibrating anemometer, please place in calm wind.");
     int count = calibration2((float*)static_zero_cross, (float*)ref_shape, sig, cpulse, pulse_len);
     if(count < 5 && count !=0)
@@ -947,6 +951,7 @@ void thread_anemometer(void* parameters)
         LOG_I("Anemometer calibration completed, based on %d measurements", count);
     }
     rt_thread_mdelay(50);
+    led_indicate_release();
 
     // Test zone
     //record_raw("/raw.csv", 100, true, pulse, pulse_len);
@@ -1043,7 +1048,9 @@ void thread_anemometer(void* parameters)
             // detect peaks as shape.
             float shape[PEAK_LEN][2];
             memset(shape, 0, sizeof(shape));
-            capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, shape, PEAK_LEFT, PEAK_RIGHT, 0.2);
+            int pz = capture_peaks(&sig[DEADZONE_OFFSET], VALID_LEN, shape, PEAK_LEFT, PEAK_RIGHT, 0.02);
+            if(pz != PEAK_LEN) // only process if the we have capture the correct len.
+                continue;
 
             // use peak to find the offset if there is any on the main peak
             #define MSE_RANGE 13

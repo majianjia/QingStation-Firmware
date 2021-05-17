@@ -80,7 +80,7 @@ struct ota_t {
     int state;
 };
 struct ota_t ota = {0};
-static uint8_t recv_buf[512];
+static uint8_t recv_buf[384];
 static uint16_t buf_len = 0;
 static rt_sem_t sem_rec = NULL;
 
@@ -246,7 +246,7 @@ void ota_thread(void *parameters)
 int ota_init(void)
 {
     sem_rec = rt_sem_create("ota", 0, RT_IPC_FLAG_FIFO);
-    rt_thread_t tid = rt_thread_create("ota", ota_thread, RT_NULL, 2048, 10, 1000);
+    rt_thread_t tid = rt_thread_create("ota", ota_thread, RT_NULL, 2048, 11, 1000);
     if(!tid)
         return -1;
     rt_thread_startup(tid);

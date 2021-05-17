@@ -10,10 +10,9 @@
  * 2021-03-20     Jianjia Ma       the first version
  */
 #include <stdio.h>
-#include "stdio.h"
-#include "stdlib.h"
-#include "ctype.h"
-#include "string.h"
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 
 #include <rtthread.h>
 #include <rtdevice.h>
@@ -147,7 +146,7 @@ static void mqtt_sub_default_callback(mqtt_client *c, message_data *msg_data)
 
 static void mqtt_connect_callback(mqtt_client *c)
 {
-    LOG_D("MQTT connected");
+    LOG_D("MQTT connecting");
 }
 
 static void mqtt_online_callback(mqtt_client *c)
@@ -229,9 +228,15 @@ static int mqtt_start(int argc, char **argv)
         #ifdef TEST_WITH_LOCAL_BROKER
             client.uri = LOCAL_URI;
         #else
-            client.uri = MQTT_URI;
-//            sprintf(uri, "tcp://%s:%d", system_config.mqtt.uri, system_config.mqtt.port);
-//            client.uri = uri;
+            //client.uri = MQTT_URI;
+            if(strlen(system_config.mqtt.uri) && system_config.mqtt.port){
+                sprintf(uri, "tcp://%s:%d", system_config.mqtt.uri, system_config.mqtt.port);
+                client.uri = uri;
+            }
+            else {
+                LOG_W("Please config the MQTT uri and port in config.json");
+                client.uri = MQTT_URI;
+            }
         #endif
             if(strlen(system_config.mqtt.mqtt_username) != 0)
             {
@@ -255,7 +260,8 @@ static int mqtt_start(int argc, char **argv)
         client.condata.will.message.cstring = MQTT_WILLMSG;
 
         /* malloc buffer. */
-        client.buf_size = client.readbuf_size = 512;
+        client.buf_size = 512;     // send
+        client.readbuf_size = 512; // receive
         client.buf = rt_calloc(1, client.buf_size);
         client.readbuf = rt_calloc(1, client.readbuf_size);
         if (!(client.buf && client.readbuf))
@@ -272,7 +278,7 @@ static int mqtt_start(int argc, char **argv)
         /* set subscribe table and event callback */
         client.message_handlers[0].topicFilter = rt_strdup(MQTT_SUBTOPIC);
         client.message_handlers[0].callback = mqtt_sub_callback;
-        client.message_handlers[0].qos = QOS1;
+        client.message_handlers[0].qos = QOS0; //
 
         /* for OTA */
         client.message_handlers[1].topicFilter = rt_strdup(MQTT_OTA_DOWNSTREAM);
@@ -299,7 +305,7 @@ static int mqtt_start(int argc, char **argv)
     }
 
     /* run mqtt client */
-    paho_mqtt_start(&client, 3000, 10);
+    paho_mqtt_start(&client, 2048, 10); // priority need to be reasonable high.
     is_started = 1;
     return 0;
 }
@@ -338,7 +344,7 @@ static int mqtt_publish(int argc, char **argv)
 
 int mqtt_publish_data(const char topic[], char value[], int qs)
 {
-    return paho_mqtt_publish(&client, qs, topic, value, strlen(value));
+    return paho_mqtt_publish(&client, qs, topic, value, MIN(strlen(value), 256));
 }
 
 #ifdef FINSH_USING_MSH
@@ -378,9 +384,9 @@ void thread_mqtt(void* p)
 {
     #define BUFSIZE  64
     char topic[BUFSIZE] = {0};
-    char line[BUFSIZE] = {0};
-    int data_len;
-    uint16_t orders[64];
+    char line[BUFSIZE] = "test";
+    int data_len = 0;
+    uint16_t orders[64] = {0};
     float last_data[64] = {0}; // whether the data is updated.
     char str_buf[256] = {0};
     rt_tick_t last_full_update = rt_tick_get();
@@ -404,7 +410,7 @@ void thread_mqtt(void* p)
     struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
     rt_device_t serial = rt_device_find(cfg->interface);
     //rt_device_open(serial, RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_DMA_RX);
-    rt_device_open(serial, RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_INT_RX);
+    rt_device_open(serial, RT_DEVICE_FLAG_RDWR| RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_INT_RX);
 
     config.baud_rate  = 57600;// cfg->baudrate; // do not configer higher than this.
     if(config.baud_rate > 57600)
@@ -447,7 +453,7 @@ void thread_mqtt(void* p)
     int period = cfg->period;
     while(1)
     {
-        rt_thread_mdelay(2);
+        rt_thread_mdelay(1);
         rt_thread_mdelay(period - rt_tick_get()%period);
 
         // fully update data every minute
@@ -493,8 +499,9 @@ void thread_mqtt(void* p)
                 else {
                     msg_count++;
                 }
+                //printf(line);
             }
-            rt_thread_delay(1); // looks like it is needed
+            //rt_thread_delay(1); // looks like it is needed
         }
     }
 }

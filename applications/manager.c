@@ -54,7 +54,7 @@ unsigned int get_cpu_timer(){
     return DWT->CYCCNT;
 }
 
-#define MAX_THREAD 20
+#define MAX_THREAD 32
 
 // test for thread hooks
 typedef struct thread_info {
