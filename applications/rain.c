@@ -160,8 +160,9 @@ void dma_ll_init(uint16_t *buf, int buf_size)
 {
     /*## Configuration of NVIC #################################################*/
     /* Configure NVIC to enable DMA interruptions */
-    //    NVIC_SetPriority(DMA1_Channel1_IRQn, 1); /* DMA IRQ lower priority than ADC IRQ */
-    //    NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+    NVIC_SetPriority(DMA1_Channel1_IRQn, 1); /* DMA IRQ lower priority than ADC IRQ */
+    //NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+    NVIC_DisableIRQ(DMA1_Channel1_IRQn); // not needed
 
     /*## Configuration of DMA ##################################################*/
     /* Enable the peripheral clock of DMA */
@@ -366,15 +367,20 @@ void adc_ll_init()
         /*       (IT from DMA transfer complete),                                 */
         /*       select sampling time and ADC clock with sufficient               */
         /*       duration to not create an overhead situation in IRQHandler.      */
-        LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_4, LL_ADC_SAMPLINGTIME_247CYCLES_5);
-        LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_6, LL_ADC_SAMPLINGTIME_247CYCLES_5);
-        LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_VREFINT, LL_ADC_SAMPLINGTIME_247CYCLES_5);
-        LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_TEMPSENSOR, LL_ADC_SAMPLINGTIME_247CYCLES_5);
+        LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_4, LL_ADC_SAMPLINGTIME_640CYCLES_5); // clock=25M / (650*4) ~= 10kHz
+        LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_6, LL_ADC_SAMPLINGTIME_640CYCLES_5);
+        LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_VREFINT, LL_ADC_SAMPLINGTIME_640CYCLES_5);
+        LL_ADC_SetChannelSamplingTime(ADC1, LL_ADC_CHANNEL_TEMPSENSOR, LL_ADC_SAMPLINGTIME_640CYCLES_5);
       }
 
       /*## Configuration of ADC interruptions ####################################*/
+
+      //disable all interrupt
+      ADC1->IER = 0;
+
       /* Enable interruption ADC group regular overrun */
       //LL_ADC_EnableIT_OVR(ADC1);
+
 
       /* Note: in this example, ADC group regular end of conversions              */
       /*       (number of ADC conversions defined by DMA buffer size)             */

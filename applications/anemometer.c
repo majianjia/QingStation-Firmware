@@ -1109,9 +1109,9 @@ void thread_anemometer(void* parameters)
             goto cycle_end;
         }
 
-        // check if the
-        if(abs(abs(dt[NORTH] - T) - abs(dt[SOUTH] - T)) > 12 ||
-           abs(abs(dt[EAST] - T) - abs(dt[WEST] - T)) > 12)
+        // check if one of the distance drift too much from the other.
+        if(fabs(fabs(dt[NORTH] - T) - fabs(dt[SOUTH] - T)) > 12 ||
+           fabs(fabs(dt[EAST] - T) - fabs(dt[WEST] - T)) > 12)
         {
             err = ERR_MISALIGN;
             err_count++;

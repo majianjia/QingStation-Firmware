@@ -330,7 +330,7 @@ static int mqtt_start(int argc, char **argv)
     }
 
     /* run mqtt client */
-    paho_mqtt_start(&client, 1500, 15); // priority need to be reasonable high. what happend if higher than AT clnt
+    paho_mqtt_start(&client, 1536, 15); // priority need to be reasonable high. what happend if higher than AT clnt
     is_started = 1;
     return 0;
 }

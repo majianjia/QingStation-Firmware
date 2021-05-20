@@ -128,7 +128,11 @@ float (*get_data[])() = {
         get_sys_temp
 };
 
-/* simple getters */
+int print_bool(char*buf, bool flag){
+    if(flag) return sprintf(buf, "true"); else return sprintf(buf, "false");
+}
+
+/* simple printer */
 int print_unknown(char*buf){return sprintf(buf, "unknown");}
 int print_gyro_x(char*buf) {return sprintf(buf, "%.4f", gyro.unit.x);}
 int print_gyro_y(char*buf) {return sprintf(buf, "%.4f", gyro.unit.y);}
@@ -164,7 +168,7 @@ int print_gnss_speed(char*buf){return sprintf(buf, "%.2f", gnss.speed);}
 int print_gnss_altitude(char*buf){return sprintf(buf, "%.2f", gnss.altitude);}
 int print_gnss_course(char*buf){return sprintf(buf, "%.1f", gnss.course);}
 int print_gnss_num_sat(char*buf){return sprintf(buf, "%d", gnss.num_sat);}
-int print_gnss_fixed(char*buf){if(gnss.is_fixed) return sprintf(buf, "true"); else return sprintf(buf, "false");}
+int print_gnss_fixed(char*buf){return print_bool(buf, gnss.is_fixed);}
 int print_ane_course(char*buf){return sprintf(buf, "%.2f", anemometer.course);}
 int print_ane_speed(char*buf){return sprintf(buf, "%.2f", anemometer.speed);}
 int print_ane_speed30savg(char*buf){return sprintf(buf, "%.2f", anemometer.speed30savg);}
