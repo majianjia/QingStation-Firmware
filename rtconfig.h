@@ -260,8 +260,8 @@
 #define PKG_NETUTILS_NTP
 #define NETUTILS_NTP_TIMEZONE 0
 #define NETUTILS_NTP_HOSTNAME "1.uk.pool.ntp.org"
-#define NETUTILS_NTP_HOSTNAME2 "ntp.rt-thread.org"
-#define NETUTILS_NTP_HOSTNAME3 "edu.ntp.org.cn"
+#define NETUTILS_NTP_HOSTNAME2 "ntp-b.nist.gov"
+#define NETUTILS_NTP_HOSTNAME3 ""
 #define PKG_USING_NETUTILS_LATEST_VERSION
 #define PKG_USING_AT_DEVICE
 #define AT_DEVICE_USING_ESP8266

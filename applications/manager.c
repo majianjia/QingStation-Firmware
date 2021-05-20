@@ -54,7 +54,7 @@ unsigned int get_cpu_timer(){
     return DWT->CYCCNT;
 }
 
-#define MAX_THREAD 32
+#define MAX_THREAD 16
 
 // test for thread hooks
 typedef struct thread_info {
@@ -80,10 +80,11 @@ thread_info_t *find_or_add(thread_info_t *list, struct rt_thread* tid)
         if(list[i].tid == NULL)
         {
             list[i].tid = tid;
-            break;
+            return &list[i];
         }
     }
-    return &list[i];
+    return NULL;
+
 }
 
 void delete_from_list(thread_info_t *list, struct rt_thread* tid)
@@ -98,18 +99,26 @@ void delete_from_list(thread_info_t *list, struct rt_thread* tid)
     }
 }
 
+// this hook takes times
+// when thread = 32
+// -o0 max 1976 normal 310-570
+// -o2 max 702
+
 static void hook_of_scheduler(struct rt_thread* from, struct rt_thread* to)
 {
     thread_info_t *t = NULL;
     uint32_t ts = get_cpu_timer();
     // stop
     t = find_or_add(threads, from);
-    t->time += ts - t->prev_time;
-    t->leave_tick = rt_tick_get();
+    if(t)
+    {
+        t->time += ts - t->prev_time;
+        t->leave_tick = rt_tick_get();
+    }
 
     t = find_or_add(threads, to);
-    t->prev_time = ts;
-
+    if(t)
+        t->prev_time = ts;
     //rt_kprintf("from: %s -->  to: %s \n", from->name , to->name);
 }
 

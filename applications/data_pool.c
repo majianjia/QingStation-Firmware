@@ -107,6 +107,7 @@ float (*get_data[])() = {
         get_light_info_ir,
         get_light_info_all,
         get_rain_level,
+        get_rain_raw,
         get_rain_var,
         get_lightning,
         get_gnss_latitude,

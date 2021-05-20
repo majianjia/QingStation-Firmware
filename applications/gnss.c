@@ -28,7 +28,8 @@
 static struct rt_semaphore rx_sem;
 static rt_err_t uart_input(rt_device_t dev, rt_size_t size)
 {
-    rt_sem_release(&rx_sem);
+    if(size >= 16) // wait a bit.
+        rt_sem_release(&rx_sem);
     return RT_EOK;
 }
 

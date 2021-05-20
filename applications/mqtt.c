@@ -20,6 +20,7 @@
 
 #include "data_pool.h"
 #include "configuration.h"
+#include "stm32l4xx_ll_utils.h"
 
 #define DBG_TAG "mqtt"
 //#define DBG_LVL DBG_INFO
@@ -113,6 +114,19 @@ static int sim800c_device_register(void)
                               (void *) sim800c);
 }
 
+extern CRC_HandleTypeDef hcrc;
+static void MX_CRC_Init(void)
+{
+  hcrc.Instance = CRC;
+  hcrc.Init.DefaultPolynomialUse = DEFAULT_POLYNOMIAL_ENABLE;
+  hcrc.Init.DefaultInitValueUse = DEFAULT_INIT_VALUE_ENABLE;
+  hcrc.Init.InputDataInversionMode = CRC_INPUTDATA_INVERSION_NONE;
+  hcrc.Init.OutputDataInversionMode = CRC_OUTPUTDATA_INVERSION_DISABLE;
+  hcrc.InputDataFormat = CRC_INPUTDATA_FORMAT_WORDS;
+  HAL_CRC_Init(&hcrc);
+}
+
+
 /* define MQTT client context */
 static mqtt_client client;
 static int is_started = 0;
@@ -197,6 +211,8 @@ static int mqtt_unsubscribe(int argc, char **argv)
     return paho_mqtt_unsubscribe(&client, argv[1]);
 }
 
+
+
 static int mqtt_start(int argc, char **argv)
 {
     /* init condata param by using MQTTPacket_connectData_initializer */
@@ -216,9 +232,18 @@ static int mqtt_start(int argc, char **argv)
     }
     /* config MQTT context param */
     {
+        // UUID is too long, we use 32bit CRC as id.
+        uint32_t uuid[3];
+        uint32_t id;
+        uuid[0] = LL_GetUID_Word0();
+        uuid[1] = LL_GetUID_Word1();
+        uuid[2] = LL_GetUID_Word2();
+        MX_CRC_Init();
+        id = HAL_CRC_Calculate(&hcrc, uuid, 3); // word
+
         client.isconnected = 0;
         /* generate the random client ID */
-        rt_snprintf(cid, sizeof(cid), "Qing%d", rt_tick_get());
+        rt_snprintf(cid, sizeof(cid), "Qing%u", id);
         /* config connect param */
         memcpy(&client.condata, &condata, sizeof(condata));
         client.condata.clientID.cstring = cid;
@@ -283,7 +308,7 @@ static int mqtt_start(int argc, char **argv)
         /* for OTA */
         client.message_handlers[1].topicFilter = rt_strdup(MQTT_OTA_DOWNSTREAM);
         client.message_handlers[1].callback = mqtt_ota_callback;
-        client.message_handlers[1].qos = QOS2;
+        client.message_handlers[1].qos = QOS0;
 
         /* set default subscribe event callback */
         client.default_message_handlers = mqtt_sub_default_callback;
@@ -305,7 +330,7 @@ static int mqtt_start(int argc, char **argv)
     }
 
     /* run mqtt client */
-    paho_mqtt_start(&client, 2048, 10); // priority need to be reasonable high.
+    paho_mqtt_start(&client, 1500, 15); // priority need to be reasonable high. what happend if higher than AT clnt
     is_started = 1;
     return 0;
 }
@@ -344,6 +369,8 @@ static int mqtt_publish(int argc, char **argv)
 
 int mqtt_publish_data(const char topic[], char value[], int qs)
 {
+    if(!client.isconnected) // hope it can minimized the error rate.
+        return -1;
     return paho_mqtt_publish(&client, qs, topic, value, MIN(strlen(value), 256));
 }
 
@@ -380,6 +407,8 @@ static int  mqtt_state(int argc, char **argv)
 MSH_CMD_EXPORT(mqtt_state, print the state of mqtt);
 #endif
 
+
+
 void thread_mqtt(void* p)
 {
     #define BUFSIZE  64
@@ -388,7 +417,6 @@ void thread_mqtt(void* p)
     int data_len = 0;
     uint16_t orders[64] = {0};
     float last_data[64] = {0}; // whether the data is updated.
-    char str_buf[256] = {0};
     rt_tick_t last_full_update = rt_tick_get();
     bool is_full_update = false;
     mqtt_config_t *cfg;
@@ -437,8 +465,10 @@ void thread_mqtt(void* p)
     }
     // if the field is empty, then we print all data.
     else{
-        strncpy(str_buf, system_config.mqtt.pub_data, 256);
+        char *str_buf = malloc(512);
+        strncpy(str_buf, system_config.mqtt.pub_data, 512);
         data_len = get_data_orders(str_buf, ", ", orders, 64);
+        free(str_buf);
     }
 
     // wait for SAL and AT device.
@@ -453,7 +483,6 @@ void thread_mqtt(void* p)
     int period = cfg->period;
     while(1)
     {
-        rt_thread_mdelay(1);
         rt_thread_mdelay(period - rt_tick_get()%period);
 
         // fully update data every minute
@@ -478,6 +507,7 @@ void thread_mqtt(void* p)
         {
             // a simple check for whether the data is updated
             if(!is_full_update){
+                //printf("%d, %d, %f\n",i, orders[i], get_data[orders[i]]());
                 if(last_data[orders[i]] != get_data[orders[i]]())
                     last_data[orders[i]] = get_data[orders[i]]();
                 else
@@ -489,6 +519,7 @@ void thread_mqtt(void* p)
                 snprintf(topic, sizeof(topic), "%s%s", cfg->topic_prefix, data_name[orders[i]]);
                 print_data[orders[i]](line);
                 rslt = mqtt_publish_data(topic, line, 0);
+                //printf("%d, %d, %s\n", i, orders[i], line);
                 if(rslt != 0)
                 {
                     // reconnected needed.
@@ -501,7 +532,7 @@ void thread_mqtt(void* p)
                 }
                 //printf(line);
             }
-            //rt_thread_delay(1); // looks like it is needed
+            rt_thread_delay(1); //
         }
     }
 }
@@ -510,7 +541,7 @@ void thread_mqtt(void* p)
 int thread_mqtt_init()
 {
     rt_thread_t tid;
-    tid = rt_thread_create("mqtt", thread_mqtt, RT_NULL, 2048+512, 20, 1000);
+    tid = rt_thread_create("mqtt", thread_mqtt, RT_NULL, 2048, 20, 1000);
     if(!tid)
         return -RT_ERROR;
     rt_thread_startup(tid);
