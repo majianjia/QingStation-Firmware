@@ -268,14 +268,14 @@ int bmx160_init(struct imu_dev_t * dev)
     rslt = bmm150_init(&imu->bmm);
 
     /* Select the Output data rate, range of accelerometer sensor */
-    imu->bmi.accel_cfg.odr = BMI160_ACCEL_ODR_100HZ;
+    imu->bmi.accel_cfg.odr = BMI160_ACCEL_ODR_50HZ;
     imu->bmi.accel_cfg.range = BMI160_ACCEL_RANGE_16G ;
     imu->bmi.accel_cfg.bw = BMI160_ACCEL_BW_NORMAL_AVG4;
     /* Select the power mode of accelerometer sensor */
     imu->bmi.accel_cfg.power = BMI160_ACCEL_LOWPOWER_MODE;
 
     /* Select the Output data rate, range of Gyroscope sensor */
-    imu->bmi.gyro_cfg.odr = BMI160_GYRO_ODR_100HZ;
+    imu->bmi.gyro_cfg.odr = BMI160_GYRO_ODR_50HZ;
     imu->bmi.gyro_cfg.range = BMI160_GYRO_RANGE_2000_DPS;
     imu->bmi.gyro_cfg.bw = BMI160_GYRO_BW_NORMAL_MODE;
     /* Select the power mode of Gyroscope sensor */

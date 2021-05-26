@@ -110,6 +110,15 @@ typedef struct _gnss_config_t
     bool is_enable;
 } gnss_config_t;
 
+typedef struct _ntp_config_t
+{
+    char server[3][32];      // support 3 servers
+    int startup_delay;       // start up delay
+    int update_period;       // update time in sec
+    bool is_enable;
+} ntp_config_t;
+
+
 // configuration of the station
 // align with json config file
 typedef struct system_config {
@@ -122,7 +131,7 @@ typedef struct system_config {
 
     mqtt_config_t mqtt;
     gnss_config_t gnss;
-
+    ntp_config_t ntp;
 } system_config_t;
 
 

@@ -321,7 +321,7 @@ void load_default_config(system_config_t* sys)
     s->user_data = bmx_cfg;
     s->create_json = bmx_create_json;
     s->load_json = bmx_load_json;
-    s->data_period = 1000/25;
+    s->data_period = 1000/100; // 10Hz
     sys->sensors = s;       // the first cannot use add_sensor().
 
     s = new_sensor("APDS9250", "i2c2");
@@ -367,10 +367,10 @@ void load_default_config(system_config_t* sys)
     rain_config_t* rain_cfg = malloc(sizeof(rain_config_t));
     if(rain_cfg == NULL) return;
     memset(rain_cfg, 0, sizeof(rain_config_t));
-    rain_cfg->light     = 5;
-    rain_cfg->moderate  = 20;
-    rain_cfg->heavy     = 50;
-    rain_cfg->violent   = 100;
+    rain_cfg->light     = 10;
+    rain_cfg->moderate  = 50;
+    rain_cfg->heavy     = 100;
+    rain_cfg->violent   = 200;
     s->user_data = rain_cfg;
     s->create_json = rain_create_json;
     s->load_json = rain_load_json;
@@ -411,6 +411,15 @@ void load_default_config(system_config_t* sys)
     sys->gnss.period = 1000;
     sys->gnss.baudrate = 19200;
     strcpy(sys->gnss.interface, "uart2");
+
+    // ntp
+    sys->ntp.is_enable = true;
+    sys->ntp.startup_delay = 60;
+    sys->ntp.update_period = 3600;
+    memset(sys->ntp.server, 0, sizeof(sys->ntp.server));
+    strncpy(sys->ntp.server[0], "uk.pool.ntp.org", sizeof(sys->ntp.server[0]));
+    strncpy(sys->ntp.server[1], "us.pool.ntp.org", sizeof(sys->ntp.server[1]));
+    strncpy(sys->ntp.server[2], "cn.pool.ntp.org", sizeof(sys->ntp.server[2]));
 }
 
 
@@ -423,6 +432,7 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
     cJSON *version = NULL;
     cJSON *mqtt = NULL;
     cJSON *gnss = NULL;
+    cJSON *ntp = NULL;
 
     int status = 0;
     config = cJSON_Parse(json_strings);
@@ -577,6 +587,36 @@ int load_config_from_json(system_config_t* sys, char* json_strings)
             strncpy(sys->gnss.interface, temp->valuestring, sizeof(sys->gnss.interface));
     }
 
+    // ntp
+    ntp = cJSON_GetObjectItemCaseSensitive(config, "ntp");
+    if (cJSON_IsObject(ntp))
+    {
+        cJSON * temp;
+        temp = cJSON_GetObjectItem(ntp, "enable");
+        if(cJSON_IsBool(temp))
+            sys->ntp.is_enable = temp->valueint;
+
+        temp = cJSON_GetObjectItem(ntp, "startup_delay");
+        if(cJSON_IsNumber(temp))
+            sys->ntp.startup_delay = temp->valueint;
+
+        temp = cJSON_GetObjectItem(ntp, "update_period");
+        if(cJSON_IsNumber(temp))
+            sys->ntp.update_period = temp->valueint;
+
+        temp = cJSON_GetObjectItem(ntp, "server1");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->ntp.server[0], temp->valuestring, sizeof(sys->ntp.server[0]));
+
+        temp = cJSON_GetObjectItem(ntp, "server2");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->ntp.server[1], temp->valuestring, sizeof(sys->ntp.server[1]));
+
+        temp = cJSON_GetObjectItem(ntp, "server3");
+        if(cJSON_IsString(temp) && temp->string != NULL)
+            strncpy(sys->ntp.server[2], temp->valuestring, sizeof(sys->ntp.server[2]));
+    }
+
     // sensor list
     sensors = cJSON_GetObjectItem(config, "sensors");
     if(cJSON_IsObject(sensors))
@@ -639,6 +679,7 @@ char* create_json_from_config(system_config_t* sys)
     cJSON *record = NULL;
     cJSON *mqtt = NULL;
     cJSON *gnss = NULL;
+    cJSON *ntp = NULL;
 
     // roots
     config = cJSON_CreateObject();
@@ -709,6 +750,16 @@ char* create_json_from_config(system_config_t* sys)
     if(!cJSON_AddNumberToObject(gnss, "period", sys->gnss.period)) goto end;
     if(!cJSON_AddStringToObject(gnss, "interface", sys->gnss.interface)) goto end;
     if(!cJSON_AddNumberToObject(gnss, "baudrate", sys->gnss.baudrate)) goto end;
+
+    ntp = cJSON_CreateObject();
+    if(!ntp) goto end;
+    if(!cJSON_AddItemToObject(config, "ntp", ntp)) goto end;
+    if(!cJSON_AddBoolToObject(ntp, "enable", sys->ntp.is_enable)) goto end;
+    if(!cJSON_AddNumberToObject(ntp, "startup_delay", sys->ntp.startup_delay)) goto end;
+    if(!cJSON_AddNumberToObject(ntp, "update_period", sys->ntp.update_period)) goto end;
+    if(!cJSON_AddStringToObject(ntp, "server1", sys->ntp.server[0])) goto end;
+    if(!cJSON_AddStringToObject(ntp, "server2", sys->ntp.server[1])) goto end;
+    if(!cJSON_AddStringToObject(ntp, "server3", sys->ntp.server[2])) goto end;
 
     ostring = cJSON_Print(config);
 

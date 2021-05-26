@@ -369,9 +369,9 @@ static int mqtt_publish(int argc, char **argv)
 
 int mqtt_publish_data(const char topic[], char value[], int qs)
 {
-    if(!client.isconnected) // hope it can minimized the error rate.
-        return -1;
-    return paho_mqtt_publish(&client, qs, topic, value, MIN(strlen(value), 256));
+    if(is_connected) // hope it can minimized the error rate.
+        return paho_mqtt_publish(&client, qs, topic, value, MIN(strlen(value), 256));
+    return -1;
 }
 
 #ifdef FINSH_USING_MSH
@@ -435,10 +435,12 @@ void thread_mqtt(void* p)
     while(!cfg->is_enable)
         rt_thread_delay(1000);
 
+    //rt_thread_delay(5000);
+
     struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
     rt_device_t serial = rt_device_find(cfg->interface);
     //rt_device_open(serial, RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_DMA_RX);
-    rt_device_open(serial, RT_DEVICE_FLAG_RDWR| RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_INT_RX);
+    rt_device_open(serial, RT_DEVICE_FLAG_INT_TX | RT_DEVICE_FLAG_INT_RX);
 
     config.baud_rate  = 57600;// cfg->baudrate; // do not configer higher than this.
     if(config.baud_rate > 57600)
@@ -447,6 +449,10 @@ void thread_mqtt(void* p)
         LOG_E("change baudrate %d, %s failed!", cfg->baudrate, cfg->interface );
     else
         LOG_I("MQTT set to uart: %s, baudrate is set to %dbps", cfg->interface, cfg->baudrate);
+
+    // clear buffer.
+//    while(0 != rt_device_read(serial, 0, line, sizeof(line)))
+//        printf("buffer left: %s\n", line);
 
     LOG_I("Setting up MQTT AT module: %s", system_config.mqtt.module);
     if(!strcasecmp("esp8266", system_config.mqtt.module))

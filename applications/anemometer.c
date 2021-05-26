@@ -54,7 +54,8 @@ enum{
 // B = barker code type
 
 
-const uint16_t cpulse[] = {P,P,P,P,P,P,N,N,N,N,P,P,N};
+const uint16_t cpulse[] = {P,P,P,P,P,P,N,N,N};
+//const uint16_t cpulse[] = {P,P,P,P,P,P,N,N,N,N,P,P,N};
 //const uint16_t cpulse[] = {P,P,P,P,P,P,P,N,N,L,X,L,X,L,X,L};
 
 //const uint16_t cpulse[] = {L, H, L, H, L, H, L, H, L, H, L, H, L, H, L, L, X, L, X, L, X, L, X, L, X, L}; // xx++++++---
