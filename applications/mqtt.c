@@ -30,8 +30,10 @@
 #include "mqtt_client.h"
 #include "mqtt_ota.h"
 
+#include <at_device_esp32.h>
 #include <at_device_esp8266.h>
 #include <at_device_sim800c.h>
+
 #include "wifi_password.h"
 
 //#define TEST_WITH_LOCAL_BROKER
@@ -50,6 +52,7 @@
 #define ESP8266_RECV_BUFF_LEN    (512)
 
 static struct at_device_esp8266 esp0 = {0};
+static struct at_device_esp32 esp32 = {0};
 
 // store locally for security. i.e. not export to default config cjson
 static char ssid[sizeof(system_config.mqtt.wifi_ssid)] = {0};
@@ -90,6 +93,41 @@ static int esp8266_device_register(void)
                               AT_DEVICE_CLASS_ESP8266,
                               (void *) esp8266);
 }
+
+
+static int esp32_device_register(void)
+{
+    struct at_device_esp32 *esp = &esp32;
+
+    if(strlen(system_config.mqtt.wifi_ssid) != 0)
+    {
+        strncpy(ssid, system_config.mqtt.wifi_ssid, sizeof(ssid));
+        strncpy(password, system_config.mqtt.wifi_password, sizeof(password));
+        if(strlen(ssid) == 0)
+        {
+            LOG_E("No ssid set, please set SSID for wifi connection (sd/config.json/mqtt/wifi_ssid)");
+            return -1;
+        }
+        esp->wifi_ssid = ssid;
+        esp->wifi_password = password;
+    }
+    else {
+        LOG_I("SSID set to firmware default.");
+        esp->wifi_ssid = ESP8266_WIFI_SSID;
+        esp->wifi_password = ESP8266_WIFI_PASSWORD;
+    }
+
+    esp->client_name = system_config.mqtt.interface;
+    esp->device_name = ESP8266_DEIVCE_NAME;
+    esp->recv_line_num = ESP8266_RECV_BUFF_LEN;
+
+    return at_device_register(&(esp->device),
+            esp->device_name,
+            esp->client_name,
+            AT_DEVICE_CLASS_ESP32,
+            (void *) esp);
+}
+
 
 #define SIM800C_DEIVCE_NAME     "sim0"
 #define SIM800C_POWER_PIN       (-1)
@@ -454,9 +492,13 @@ void thread_mqtt(void* p)
 //    while(0 != rt_device_read(serial, 0, line, sizeof(line)))
 //        printf("buffer left: %s\n", line);
 
+    rt_thread_mdelay(2000);
+
     LOG_I("Setting up MQTT AT module: %s", system_config.mqtt.module);
     if(!strcasecmp("esp8266", system_config.mqtt.module))
         esp8266_device_register();
+    else if(!strcasecmp("esp32", system_config.mqtt.module))
+        esp32_device_register();
     else if(!strcasecmp("sim800c", system_config.mqtt.module))
         sim800c_device_register();
     else

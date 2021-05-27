@@ -17,8 +17,8 @@
 #include "configuration.h"
 
 #define DBG_TAG "lightning"
-#define DBG_LVL DBG_INFO
-//#define DBG_LVL DBG_LOG
+//#define DBG_LVL DBG_INFO
+#define DBG_LVL DBG_LOG
 #include <rtdbg.h>
 
 #define INT_PIN GET_PIN(B, 12)
@@ -48,6 +48,14 @@ bool is_lightning_calibrating()
 {
     return is_calibrating;
 }
+
+bool is_lightning_print = false;
+int lightning_info(int argc, char * argv[])
+{
+    is_lightning_print = !is_lightning_print;
+    return 0;
+}
+MSH_CMD_EXPORT(lightning_info, print lightning info)
 
 void thread_lightning(void* parameters)
 {
@@ -85,12 +93,12 @@ void thread_lightning(void* parameters)
         as3935_enable_clock_output(AS3935_LCO | calib_cap);
         cali_count = 0;
         rt_tick_t t = rt_tick_get();
-        rt_thread_mdelay(500);
+        rt_thread_mdelay(200);
         t = rt_tick_get() - t;
         calib_f = ((float)cali_count/t)*128;
         if(calib_f < 502)
             break;
-        LOG_D("ant: count:%d, sample times:%d, freq = %f", cali_count, t, calib_f);
+        LOG_D("ant: pulse:%d, sample times:%dms, freq = %.1fKHz", cali_count, t, calib_f);
     }
     is_calibrating = false;
     as3935_enable_clock_output(calib_cap); // disable clock output.
@@ -108,7 +116,8 @@ void thread_lightning(void* parameters)
         if(rt_pin_read(INT_PIN))
         {
             uint8_t event = as3935_read_int();
-            LOG_D("interrupted, %d", event);
+            if(is_lightning_print)
+                printf("interrupted, %d\n", event);
             if(event & AS3935_INT_NOISE)
             {
                 as3935_noise_level_set(noise_level);
@@ -119,7 +128,8 @@ void thread_lightning(void* parameters)
             }
         }
 
-        LOG_D("distance: %d, energy:%d", distance, energy);
+        if(is_lightning_print)
+            printf("distance: %u, energy:%u\n", distance, energy);
 
         lightning.distance = distance;
         data_updated(&lightning.info);

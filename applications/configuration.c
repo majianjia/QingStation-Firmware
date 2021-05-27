@@ -321,7 +321,7 @@ void load_default_config(system_config_t* sys)
     s->user_data = bmx_cfg;
     s->create_json = bmx_create_json;
     s->load_json = bmx_load_json;
-    s->data_period = 1000/100; // 10Hz
+    s->data_period = 1000/10; // 10Hz
     sys->sensors = s;       // the first cannot use add_sensor().
 
     s = new_sensor("APDS9250", "i2c2");
@@ -392,10 +392,11 @@ void load_default_config(system_config_t* sys)
 
     // mqtt
     sys->mqtt.is_enable = true;
-    sys->mqtt.period = 15000;
+    sys->mqtt.period = 5000;
     sys->mqtt.baudrate = 57600;
     strcpy(sys->mqtt.interface,"lpuart1");
-    strcpy(sys->mqtt.module,"esp8266");
+    //strcpy(sys->mqtt.module,"esp8266");
+    strcpy(sys->mqtt.module,"esp32");
     //strcpy(sys->mqtt.module,"sim800c");
     strcpy(sys->mqtt.wifi_ssid,"");
     strcpy(sys->mqtt.wifi_password,"");
