@@ -20,7 +20,7 @@ List of third party software packages:
 - mymqtt
 - at_device(RT-Thread)
 - tinycrypt(RT-Thread)
-- netutils(RT-Thread)
+- ~~netutils(RT-Thread)~~ (due to License conflict)
 
 Please see their own license for detail. 
 
