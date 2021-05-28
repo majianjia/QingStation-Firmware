@@ -1,25 +1,23 @@
 # QingStation Firmware 
 This repository is dedicated for the C language firmware.
 
-The firmware is developed for QingStation hardware.
-
-- Firmware is based on RT-Thread V4.0.3
+- Firmware is based on [RT-Thread V4.0.3](https://github.com/RT-Thread/rt-thread)
 - IDE: RT-Thread Studio V2.0
 
-For hardware and more info, please see [the main repository for the QingStation](https://github.com/majianjia/QingStation). 
+For hardware and more info, please see the QingStation main repo: [https://github.com/majianjia/QingStation](https://github.com/majianjia/QingStation). 
 
 This firmware has start address of `0x8010000` (`64kB` offset). 
 Thus, it needs [QingStation bootloader](https://github.com/majianjia/QingStation-bootloader) to boot up.
 Or change it back to `0x8000000` by revising the link file. 
 
 List of third party software packages:
-- cJSON
-- Madgwick
-- ulog_file(RT-Thread)
-- minmea
-- mymqtt
-- at_device(RT-Thread)
-- tinycrypt(RT-Thread)
+- [cJSON](https://github.com/DaveGamble/cJSON)
+- [Madgwick](https://x-io.co.uk/open-source-imu-and-ahrs-algorithms/)
+- [ulog_file(RT-Thread)](https://github.com/RT-Thread-packages/ulog_file)
+- [minmea](https://github.com/kosma/minmea)
+- [mymqtt](https://github.com/hichard/mymqtt)
+- [at_device(RT-Thread)](https://github.com/RT-Thread-packages/at_device)
+- [tinycrypt (RT-Thread)](https://github.com/RT-Thread-packages/tinycrypt)
 - ~~netutils(RT-Thread)~~ (due to License conflict)
 
 Please see their own license for detail. 
