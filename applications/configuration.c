@@ -392,9 +392,9 @@ void load_default_config(system_config_t* sys)
 
     // mqtt
     sys->mqtt.is_enable = true;
-    sys->mqtt.period = 5000;
+    sys->mqtt.period = 10;
     sys->mqtt.baudrate = 57600;
-    strcpy(sys->mqtt.interface,"lpuart1");
+    strcpy(sys->mqtt.interface,"uart2");
     //strcpy(sys->mqtt.module,"esp8266");
     strcpy(sys->mqtt.module,"esp32");
     //strcpy(sys->mqtt.module,"sim800c");
@@ -410,8 +410,8 @@ void load_default_config(system_config_t* sys)
     // gnss
     sys->gnss.is_enable = true;
     sys->gnss.period = 1000;
-    sys->gnss.baudrate = 19200;
-    strcpy(sys->gnss.interface, "uart2");
+    sys->gnss.baudrate = 38400;
+    strcpy(sys->gnss.interface, "lpuart1");
 
     // ntp
     sys->ntp.is_enable = true;

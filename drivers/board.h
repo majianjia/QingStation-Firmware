@@ -30,7 +30,7 @@ extern "C"
 /*-------------------------- ROM/RAM CONFIG BEGIN --------------------------*/
 
 #define ROM_START              ((uint32_t)0x08010000)
-#define ROM_SIZE               (1024 * 960)
+#define ROM_SIZE               (1024 * 446)
 #define ROM_END                ((uint32_t)(ROM_START + ROM_SIZE))
 
 #define RAM_START              (0x20000000)
@@ -77,6 +77,8 @@ extern "C"
 #define BSP_LPUART1_RX_PIN       "PB10"
 
 #define BSP_USING_UART2
+//#define BSP_UART2_TX_USING_DMA  // not implemented
+//#define BSP_UART2_RX_USING_DMA  // RX is conflict with timer PWM for anemometer
 #define BSP_UART2_TX_PIN       "PA2"
 #define BSP_UART2_RX_PIN       "PA3"
 

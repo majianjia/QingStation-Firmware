@@ -106,8 +106,7 @@ void gnss_set_bitrate(rt_device_t serial, uint32_t bitrate)
 int detect_bitrate(rt_device_t serial, uint32_t num_of_try)
 {
     // find the corrent bit rate
-    const int bitrate_table[] = {4800, 9600, 19200, 38400, 56700, 115200};
-    int gnss_bitrate = 9600;
+    const int bitrate_table[] = {115200, 57600, 38400, 19200, 9600, 4800};
     for(int i=0; i<sizeof(bitrate_table)/sizeof(int); i++)
     {
         int size;
@@ -189,7 +188,7 @@ void thread_gnss(void* p)
     int32_t size;
     int32_t index = 0;
     char ch;
-    int gnss_bitrate = 0;
+    int gnss_bitrate = -1;
     struct serial_configure config = RT_SERIAL_CONFIG_DEFAULT;
     gnss_config_t *cfg = NULL;
 
@@ -203,11 +202,11 @@ void thread_gnss(void* p)
     rt_thread_mdelay(1000);
     rt_device_t serial = rt_device_find(cfg->interface);
     rt_device_set_rx_indicate(serial, uart_input);
-    //rt_device_open(serial, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_DMA_RX | RT_DEVICE_FLAG_INT_TX);
-    rt_device_open(serial, RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
+    //rt_device_open(serial, RT_DEVICE_FLAG_DMA_RX | RT_DEVICE_FLAG_INT_TX);
+    rt_device_open(serial, RT_DEVICE_FLAG_INT_RX | RT_DEVICE_FLAG_INT_TX);
 
     // try to scan the bitrates
-    gnss_bitrate = detect_bitrate(serial, 30);
+    //gnss_bitrate = detect_bitrate(serial, 30);
     if(gnss_bitrate == -1)
     {
         LOG_E("Cannot detect gnss module baudrate, uart will be set to default %dbps", cfg->baudrate);
