@@ -387,7 +387,7 @@ void load_default_config(system_config_t* sys)
     // log
     sys->log.is_enable = false;
     sys->log.is_repeat_header = true;
-    strcpy(sys->log.header,"temp,humidity,pressure,bat_volt,light,num_sat,latitude,longitude,windspeed");
+    strcpy(sys->log.header,"air_temp,humidity,pressure,bat_volt,als,gnss_sat,gnss_lat,gnss_long,wind_speed");
     sys->log.period = 10000;
 
     // mqtt

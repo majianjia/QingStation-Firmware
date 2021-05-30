@@ -580,7 +580,7 @@ void thread_mqtt(void* p)
                 }
                 //printf(line);
             }
-            rt_thread_delay(1); //
+            //rt_thread_delay(1); //
         }
     }
 }

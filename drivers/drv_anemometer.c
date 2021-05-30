@@ -29,20 +29,20 @@ static void MX_DMA_Init(void)
 
     /* DMA interrupt init */
     /* DMA1_Channel2_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 1, 0);   // adc2 (this must be high or the system stuck at checking connection)why?
     HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
-    /* DMA1_Channel4_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 1, 2);
+    /* DMA1_Channel4_IRQn interrupt configuration */  //dfsdm
+    HAL_NVIC_SetPriority(DMA1_Channel4_IRQn, 2, 2);
     HAL_NVIC_EnableIRQ(DMA1_Channel4_IRQn);
-    /* DMA1_Channel6_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 1, 0);
+    /* DMA1_Channel6_IRQn interrupt configuration */  // timer 3
+    HAL_NVIC_SetPriority(DMA1_Channel6_IRQn, 2, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel6_IRQn);
     /* DMA2_Channel6_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 1, 3);
-    HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
-    /* DMA2_Channel7_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, 1, 3);
-    HAL_NVIC_EnableIRQ(DMA2_Channel7_IRQn);
+    //    HAL_NVIC_SetPriority(DMA2_Channel6_IRQn, 2, 3);   // LPUART set by drv_uart
+    //    HAL_NVIC_EnableIRQ(DMA2_Channel6_IRQn);
+    //    /* DMA2_Channel7_IRQn interrupt configuration */  // LPUART
+    //    HAL_NVIC_SetPriority(DMA2_Channel7_IRQn, 2, 3);
+    //    HAL_NVIC_EnableIRQ(DMA2_Channel7_IRQn);
 }
 
 // ADC init
