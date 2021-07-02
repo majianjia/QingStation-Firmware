@@ -31,6 +31,7 @@ extern "C"
 
 #define ROM_START              ((uint32_t)0x08010000)
 #define ROM_SIZE               (1024 * 446)
+//#define ROM_SIZE               (1024 * 1024)
 #define ROM_END                ((uint32_t)(ROM_START + ROM_SIZE))
 
 #define RAM_START              (0x20000000)

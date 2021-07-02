@@ -245,7 +245,7 @@ void ota_thread(void *parameters)
 
 int ota_init(void)
 {
-    sem_rec = rt_sem_create("ota", 0, RT_IPC_FLAG_FIFO);
+    sem_rec = rt_sem_create("ota", 0, RT_IPC_FLAG_PRIO);
     rt_thread_t tid = rt_thread_create("ota", ota_thread, RT_NULL, 2048, 11, 1000);
     if(!tid)
         return -1;

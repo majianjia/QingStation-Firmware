@@ -37,7 +37,7 @@
 #include "wifi_password.h"
 
 //#define TEST_WITH_LOCAL_BROKER
-#define LOCAL_URI "tcp://192.168.1.85:1883"
+#define LOCAL_URI "tcp://192.168.1.87:1883"
 
 // #define MQTT_URI                "tcp://test.mosquitto.org:1883"
 // #define MQTT_URI                "tcp://mq.tongxinmao.com:18831"
@@ -580,7 +580,7 @@ void thread_mqtt(void* p)
                 }
                 //printf(line);
             }
-            //rt_thread_delay(1); //
+            rt_thread_delay(1); // this is needed for more stable AT device
         }
     }
 }

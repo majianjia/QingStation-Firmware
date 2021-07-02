@@ -1230,7 +1230,7 @@ int ulog_init(void)
     if (ulog.init_ok)
         return 0;
 
-    rt_mutex_init(&ulog.output_locker, "ulog lock", RT_IPC_FLAG_FIFO);
+    rt_mutex_init(&ulog.output_locker, "ulog lock", RT_IPC_FLAG_PRIO);
     rt_slist_init(&ulog.backend_list);
 
 #ifdef ULOG_USING_FILTER
@@ -1258,7 +1258,7 @@ int ulog_init(void)
         return -RT_ENOMEM;
     }
 
-    rt_sem_init(&ulog.async_notice, "ulog", 0, RT_IPC_FLAG_FIFO);
+    rt_sem_init(&ulog.async_notice, "ulog", 0, RT_IPC_FLAG_PRIO);
     /* async output thread startup */
     rt_thread_startup(ulog.async_th);
 

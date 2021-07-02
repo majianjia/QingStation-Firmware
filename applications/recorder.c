@@ -149,7 +149,7 @@ recorder_t * recorder_create(const char file_path[], const char name[], rt_tick_
     recorder->is_open = true;
     strncpy(recorder->file_path, file_path, 128);
     // message queue as a buffer to store data.
-    recorder->mailbox = rt_mb_create(tname, 4, RT_IPC_FLAG_FIFO);
+    recorder->mailbox = rt_mb_create(tname, 4, RT_IPC_FLAG_PRIO);
     if(!recorder->mailbox)
     {
         close(fd); free(recorder);

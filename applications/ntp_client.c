@@ -124,7 +124,6 @@ int ntp_sync(int argc, char* argv[])
       goto __exit;
     }
 
-
     // Send it the NTP packet it wants. If n == -1, it failed.
     n = write(sockfd, (char* ) &packet, sizeof(ntp_packet) );
     if ( n < 0 ){
@@ -133,6 +132,17 @@ int ntp_sync(int argc, char* argv[])
       goto __exit;
     }
 
+    // try select
+//    fd_set readset;
+//    FD_ZERO(&readset);
+//    FD_SET(sockfd, &readset);
+//    int select_rslt;
+//    int maxfdp1 = sockfd+1;
+//    do{
+//        rt_thread_delay(1);
+//        select_rslt = select(maxfdp1, &readset, 0, 0, 0);
+//    }while(select_rslt == 0);
+    // select end
 
     // Wait and receive the packet back from the server. If n == -1, it failed.
     n = read(sockfd, (char* ) &packet, sizeof(ntp_packet) );

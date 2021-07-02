@@ -401,7 +401,7 @@ rt_int32_t rt_mmcsd_blk_probe(struct rt_mmcsd_card *card)
             {
                 rt_snprintf(dname, 4, "sd%d",  i);
                 rt_snprintf(sname, 8, "sem_sd%d",  i);
-                blk_dev->part.lock = rt_sem_create(sname, 1, RT_IPC_FLAG_FIFO);
+                blk_dev->part.lock = rt_sem_create(sname, 1, RT_IPC_FLAG_PRIO);
     
                 /* register mmcsd device */
                 blk_dev->dev.type = RT_Device_Class_Block;
@@ -434,7 +434,7 @@ rt_int32_t rt_mmcsd_blk_probe(struct rt_mmcsd_card *card)
                     /* there is no partition table */
                     blk_dev->part.offset = 0;
                     blk_dev->part.size   = 0;
-                    blk_dev->part.lock = rt_sem_create("sem_sd0", 1, RT_IPC_FLAG_FIFO);
+                    blk_dev->part.lock = rt_sem_create("sem_sd0", 1, RT_IPC_FLAG_PRIO);
     
                     /* register mmcsd device */
                     blk_dev->dev.type  = RT_Device_Class_Block;

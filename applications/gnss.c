@@ -303,7 +303,7 @@ MSH_CMD_EXPORT(gnss_echo, echo gnss raw nmea message to cmd line)
 int thread_gnss_init()
 {
     rt_thread_t tid;
-    rt_sem_init(&rx_sem, "gnss_rx", 0, RT_IPC_FLAG_FIFO);
+    rt_sem_init(&rx_sem, "gnss_rx", 0, RT_IPC_FLAG_PRIO);
     tid = rt_thread_create("gnss", thread_gnss, RT_NULL, 2048, 16, 1000);
     if(!tid)
         return RT_ERROR;

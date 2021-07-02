@@ -392,7 +392,7 @@ void load_default_config(system_config_t* sys)
 
     // mqtt
     sys->mqtt.is_enable = true;
-    sys->mqtt.period = 10;
+    sys->mqtt.period = 1;
     sys->mqtt.baudrate = 57600;
     strcpy(sys->mqtt.interface,"uart2");
     //strcpy(sys->mqtt.module,"esp8266");
