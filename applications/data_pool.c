@@ -132,8 +132,22 @@ int print_bool(char*buf, bool flag){
     if(flag) return sprintf(buf, "true"); else return sprintf(buf, "false");
 }
 
+// This part is to fix the newlib thread-unsafe problem
+// replace the sprintf with our locked function to avoid floating point none-re-entry problem.
+static rt_mutex_t lock = NULL;
+int locked_sprintf(char* buf, const char fmt[], double data)
+{
+    int len = 0;
+    if(lock) rt_mutex_take(lock, 100);
+    len = sprintf(buf, fmt, data);
+    if(lock) rt_mutex_release(lock);
+    return len;
+}
+#define sprintf locked_sprintf // replace the newlib sprintf by our locked version.
+// fixed newlib end.
+
 /* simple printer */
-int print_unknown(char*buf){return sprintf(buf, "unknown");}
+int print_unknown(char*buf){return sprintf(buf, "unknown", 0);}
 int print_gyro_x(char*buf) {return sprintf(buf, "%.4f", gyro.unit.x);}
 int print_gyro_y(char*buf) {return sprintf(buf, "%.4f", gyro.unit.y);}
 int print_gyro_z(char*buf) {return sprintf(buf, "%.4f", gyro.unit.z);}
@@ -309,24 +323,15 @@ uint32_t get_data_orders(char* names, char* delim, uint16_t *orders, uint16_t ma
     return max_order_len;
 }
 
-int data_test()
+
+// this is to fix the newlib thread-unsafe problem, avoid access to sprintf.
+int datapool_init()
 {
-    char header[] = "gyro_x,gyro_y,acc_z";
-    uint16_t orders[6] = {0};
-
-    get_data_orders(header, ",", orders, 6);
-
-    printf("orders: ");
-    for(int i=0; i<sizeof(orders)/sizeof(uint16_t); i++)
-    {
-        printf("%d,", orders[i]);
-
-    }
-    printf("\n");
-
+    lock = rt_mutex_create("datalock", RT_IPC_FLAG_PRIO);
     return 0;
 }
-//INIT_APP_EXPORT(data_test);
+INIT_ENV_EXPORT(datapool_init);
+// fix newlib end.
 
 void data_updated(sensor_info_t *info)
 {
